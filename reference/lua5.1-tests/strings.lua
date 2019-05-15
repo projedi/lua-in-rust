@@ -102,7 +102,10 @@ print('+')
 
 x = '"ílo"\n\\'
 assert(string.format('%q%s', x, x) == '"\\"ílo\\"\\\n\\\\""ílo"\n\\')
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 assert(string.format('%q', "\0") == [["\000"]])
+end
 assert(string.format("\0%c\0%c%x\0", string.byte("á"), string.byte("b"), 140) ==
               "\0á\0b8c\0")
 assert(string.format('') == "")
@@ -152,12 +155,16 @@ local function trylocale (w)
   return false
 end
 
+if os.getenv("LUA_INTERPRETER") ~= 'lua_Darwin' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 if not trylocale("collate")  then
   print("locale not supported")
 else
   assert("alo" < "álo" and "álo" < "amo")
 end
+end
 
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 if not trylocale("ctype") then
   print("locale not supported")
 else
@@ -165,6 +172,7 @@ else
   assert(string.gsub("áÁéÉ", "%l", "x") == "xÁxÉ")
   assert(string.gsub("áÁéÉ", "%u", "x") == "áxéx")
   assert(string.upper"áÁé{xuxu}ção" == "ÁÁÉ{XUXU}ÇÃO")
+end
 end
 
 os.setlocale("C")

@@ -158,6 +158,7 @@ end
 
 
 -- testing decimal point locale
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 if os.setlocale("pt_BR") or os.setlocale("ptb") then
   assert(tonumber("3,4") == 3.4 and tonumber"3.4" == nil)
   assert(assert(loadstring("return 3.4"))() == 3.4)
@@ -170,6 +171,7 @@ if os.setlocale("pt_BR") or os.setlocale("ptb") then
 else
   (Message or print)(
    '\a\n >>> pt_BR locale not available: skipping decimal point tests <<<\n\a')
+end
 end
 
 

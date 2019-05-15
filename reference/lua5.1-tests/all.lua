@@ -79,7 +79,10 @@ end
 
 local f = assert(loadfile('gc.lua'))
 f()
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 dofile('db.lua')
+end
 assert(dofile('calls.lua') == deep and deep)
 dofile('strings.lua')
 dofile('literals.lua')
@@ -96,7 +99,10 @@ dofile('nextvar.lua')
 dofile('pm.lua')
 dofile('api.lua')
 assert(dofile('events.lua') == 12)
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 dofile('vararg.lua')
+end
 dofile('closure.lua')
 dofile('errors.lua')
 dofile('math.lua')

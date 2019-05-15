@@ -174,7 +174,10 @@ f = coroutine.wrap(foo)
 local a = {}
 assert(f(a) == _G)
 local a,b = pcall(f)
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 assert(a and b == _G)
+end
 
 
 -- tests for multiple yield/resume arguments

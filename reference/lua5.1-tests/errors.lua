@@ -72,8 +72,11 @@ checkmessage("b=1; local aaa='a'; x=aaa+b", "local 'aaa'")
 checkmessage("aaa={}; x=3/aaa", "global 'aaa'")
 checkmessage("aaa='2'; b=nil;x=aaa*b", "global 'b'")
 checkmessage("aaa={}; x=-aaa", "global 'aaa'")
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 assert(not string.find(doit"aaa={}; x=(aaa or aaa)+(aaa and aaa)", "'aaa'"))
 assert(not string.find(doit"aaa={}; (aaa or aaa)()", "'aaa'"))
+end
 
 checkmessage([[aaa=9
 repeat until 3==3
@@ -100,9 +103,12 @@ while 1 do
   insert(prefix, a)
 end]], "global 'insert'")
 
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 checkmessage([[  -- tail call
   return math.sin("a")
 ]], "'sin'")
+end
 
 checkmessage([[collectgarbage("nooption")]], "invalid option")
 
@@ -192,8 +198,11 @@ checksyntax("1.000", "", "1.000", 1)
 checksyntax("[[a]]", "", "[[a]]", 1)
 checksyntax("'aa'", "", "'aa'", 1)
 
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 -- test 255 as first char in a chunk
 checksyntax("\255a = 1", "", "\255", 1)
+end
 
 doit('I = loadstring("a=9+"); a=3')
 assert(a==3 and I == nil)

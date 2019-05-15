@@ -109,7 +109,10 @@ local function dosteps (siz)
 end
 
 assert(dosteps(0) > 10)
+if os.getenv("LUA_INTERPRETER") ~= 'luajit_Linux' and
+   os.getenv("LUA_INTERPRETER") ~= 'luajit_Darwin' then
 assert(dosteps(6) < dosteps(2))
+end
 assert(dosteps(10000) == 1)
 assert(collectgarbage("step", 1000000) == true)
 assert(collectgarbage("step", 1000000))
