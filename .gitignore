@@ -16,3 +16,11 @@
 /reference/LuaJIT-2.0.5/src/lj_libdef.h
 /reference/LuaJIT-2.0.5/src/lj_recdef.h
 /reference/LuaJIT-2.0.5/src/lj_vm.s
+
+
+#Added by cargo
+#
+#already existing elements are commented out
+
+/target
+**/*.rs.bk

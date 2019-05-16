@@ -1,0 +1,7 @@
+[package]
+name = "lua-in-rust"
+version = "0.1.0"
+authors = ["Alexander Shabalin <shabalyn.a@gmail.com>"]
+edition = "2018"
+
+[dependencies]
