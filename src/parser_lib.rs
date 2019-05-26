@@ -54,6 +54,17 @@ pub fn char_parser<'a>(c: char) -> Box<dyn Parser<'a, char>> {
     satisfies(move |in_c| in_c == c)
 }
 
+pub fn seq_bind<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    p1: Box<dyn Parser<'b, T1> + 'a>,
+    fp2: impl Fn(T1) -> Box<dyn Parser<'b, T2> + 'a> + 'a,
+) -> Box<dyn Parser<'b, T2> + 'a> {
+    Box::new(move |s| {
+        let (p1_result, s) = p1(s)?;
+        let (p2_result, s) = fp2(p1_result)(s)?;
+        Some((p2_result, s))
+    })
+}
+
 pub fn seq<'a, 'b: 'a, T1: 'a, T2: 'a>(
     p1: Box<dyn Parser<'b, T1> + 'a>,
     p2: Box<dyn Parser<'b, T2> + 'a>,
@@ -63,6 +74,49 @@ pub fn seq<'a, 'b: 'a, T1: 'a, T2: 'a>(
         let (p2_result, s) = p2(s)?;
         Some(((p1_result, p2_result), s))
     })
+}
+
+pub fn seq1<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    p1: Box<dyn Parser<'b, T1> + 'a>,
+    p2: Box<dyn Parser<'b, T2> + 'a>,
+) -> Box<dyn Parser<'b, T1> + 'a> {
+    Box::new(move |s| {
+        let (p1_result, s) = p1(s)?;
+        let (_, s) = p2(s)?;
+        Some((p1_result, s))
+    })
+}
+
+pub fn seq2<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    p1: Box<dyn Parser<'b, T1> + 'a>,
+    p2: Box<dyn Parser<'b, T2> + 'a>,
+) -> Box<dyn Parser<'b, T2> + 'a> {
+    Box::new(move |s| {
+        let (_, s) = p1(s)?;
+        let (p2_result, s) = p2(s)?;
+        Some((p2_result, s))
+    })
+}
+
+pub fn seq_<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    p1: Box<dyn Parser<'b, T1> + 'a>,
+    p2: Box<dyn Parser<'b, T2> + 'a>,
+) -> Box<dyn Parser<'b, ()> + 'a> {
+    Box::new(move |s| {
+        let (_, s) = p1(s)?;
+        let (_, s) = p2(s)?;
+        Some(((), s))
+    })
+}
+
+macro_rules! seqs_ {
+    ($($e:expr),* $(,)?) => {
+        {
+            let mut p = $crate::parser_lib::empty_parser();
+            $(p = $crate::parser_lib::seq_(p, $e);)*
+            p
+        }
+    }
 }
 
 pub fn choice<'a, 'b: 'a, T: 'a>(
@@ -76,6 +130,16 @@ pub fn choice<'a, 'b: 'a, T: 'a>(
             None => p2(s),
         }
     })
+}
+
+pub fn choices<'a, 'b: 'a, T: 'a>(
+    ps: Vec<Box<dyn Parser<'b, T> + 'a>>,
+) -> Box<dyn Parser<'b, T> + 'a> {
+    let mut r = fail_parser();
+    for p in ps {
+        r = choice(r, p)
+    }
+    r
 }
 
 pub fn many<'a, 'b: 'a, T: 'a>(p: Box<dyn Parser<'b, T> + 'a>) -> Box<dyn Parser<'b, Vec<T>> + 'a> {
@@ -118,6 +182,30 @@ pub fn many1<'a, 'b: 'a, T: 'a>(
             }
         }
         Some((results, cur_s))
+    })
+}
+
+pub fn try_parser<'a, 'b: 'a, T: 'a>(
+    p: Box<dyn Parser<'b, T> + 'a>,
+) -> Box<dyn Parser<'b, Option<T>> + 'a> {
+    Box::new(move |s| {
+        let p_result = p(s);
+        match p_result {
+            None => Some((None, s)),
+            Some((x, s)) => Some((Some(x), s)),
+        }
+    })
+}
+
+pub fn not_parser<'a, 'b: 'a, T: 'a>(
+    p: Box<dyn Parser<'b, T> + 'a>,
+) -> Box<dyn Parser<'b, ()> + 'a> {
+    Box::new(move |s| {
+        let p_result = p(s);
+        match p_result {
+            None => Some(((), s)),
+            Some(_) => None,
+        }
     })
 }
 
@@ -227,6 +315,61 @@ mod tests {
     }
 
     #[test]
+    fn test_seq_bind() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl(
+                "",
+                seq_bind(char_parser('a'), move |c1| fmap(
+                    move |c2| (c2, c1),
+                    char_parser('b')
+                ))
+            ),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(
+                "bac",
+                seq_bind(char_parser('a'), move |c1| fmap(
+                    move |c2| (c2, c1),
+                    char_parser('b')
+                ))
+            ),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(
+                "acb",
+                seq_bind(char_parser('a'), move |c1| fmap(
+                    move |c2| (c2, c1),
+                    char_parser('b')
+                ))
+            ),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(
+                "abc",
+                seq_bind(char_parser('a'), move |c1| fmap(
+                    move |c2| (c2, c1),
+                    char_parser('b')
+                ))
+            ),
+            Some((('b', 'a'), "c"))
+        );
+        assert_eq!(
+            run_parser_impl(
+                &s,
+                seq_bind(char_parser('a'), move |c1| fmap(
+                    move |c2| (c2, c1),
+                    char_parser('b')
+                ))
+            ),
+            Some((('b', 'a'), &s[2..]))
+        );
+    }
+
+    #[test]
     fn test_seq() {
         let s: String = "abc".to_string();
         assert_eq!(
@@ -252,6 +395,106 @@ mod tests {
     }
 
     #[test]
+    fn test_seq1() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", seq1(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("bac", seq1(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("acb", seq1(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("abc", seq1(char_parser('a'), char_parser('b'))),
+            Some(('a', "c"))
+        );
+        assert_eq!(
+            run_parser_impl(&s, seq1(char_parser('a'), char_parser('b'))),
+            Some(('a', &s[2..]))
+        );
+    }
+
+    #[test]
+    fn test_seq2() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", seq2(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("bac", seq2(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("acb", seq2(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("abc", seq2(char_parser('a'), char_parser('b'))),
+            Some(('b', "c"))
+        );
+        assert_eq!(
+            run_parser_impl(&s, seq2(char_parser('a'), char_parser('b'))),
+            Some(('b', &s[2..]))
+        );
+    }
+
+    #[test]
+    fn test_seq_() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", seq_(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("bac", seq_(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("acb", seq_(char_parser('a'), char_parser('b'))),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("abc", seq_(char_parser('a'), char_parser('b'))),
+            Some(((), "c"))
+        );
+        assert_eq!(
+            run_parser_impl(&s, seq_(char_parser('a'), char_parser('b'))),
+            Some(((), &s[2..]))
+        );
+    }
+
+    #[test]
+    fn test_seqs_() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", seqs_![char_parser('a'), char_parser('b')]),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("bac", seqs_![char_parser('a'), char_parser('b')]),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("acb", seqs_![char_parser('a'), char_parser('b')]),
+            None
+        );
+        assert_eq!(
+            run_parser_impl("abc", seqs_![char_parser('a'), char_parser('b')]),
+            Some(((), "c"))
+        );
+        assert_eq!(
+            run_parser_impl(&s, seqs_![char_parser('a'), char_parser('b')]),
+            Some(((), &s[2..]))
+        );
+    }
+
+    #[test]
     fn test_choice() {
         let s: String = "abc".to_string();
         assert_eq!(
@@ -272,6 +515,80 @@ mod tests {
         );
         assert_eq!(
             run_parser_impl(&s, choice(char_parser('a'), char_parser('b'))),
+            Some(('a', &s[1..]))
+        );
+    }
+
+    #[test]
+    fn test_choices0() {
+        let s: String = "abc".to_string();
+        assert_eq!(run_parser_impl("", choices::<()>(vec![])), None);
+        assert_eq!(run_parser_impl("abc", choices::<()>(vec![])), None);
+        assert_eq!(run_parser_impl("bac", choices::<()>(vec![])), None);
+        assert_eq!(run_parser_impl(&s, choices::<()>(vec![])), None);
+    }
+
+    #[test]
+    fn test_choices1() {
+        let s: String = "abc".to_string();
+        assert_eq!(run_parser_impl("", choices(vec![char_parser('a')])), None);
+        assert_eq!(
+            run_parser_impl("abc", choices(vec![char_parser('a')])),
+            Some(('a', "bc"))
+        );
+        assert_eq!(
+            run_parser_impl("bac", choices(vec![char_parser('a')])),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(&s, choices(vec![char_parser('a')])),
+            Some(('a', &s[1..]))
+        );
+    }
+
+    #[test]
+    fn test_choices3() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl(
+                "",
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(
+                "abc",
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
+            Some(('a', "bc"))
+        );
+        assert_eq!(
+            run_parser_impl(
+                "bac",
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
+            Some(('b', "ac"))
+        );
+        assert_eq!(
+            run_parser_impl(
+                "cba",
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
+            Some(('c', "ba"))
+        );
+        assert_eq!(
+            run_parser_impl(
+                "dba",
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
+            None
+        );
+        assert_eq!(
+            run_parser_impl(
+                &s,
+                choices(vec![char_parser('a'), char_parser('b'), char_parser('c')])
+            ),
             Some(('a', &s[1..]))
         );
     }
@@ -324,6 +641,42 @@ mod tests {
             run_parser_impl(&s, many1(satisfies(|c| c.is_alphanumeric()))),
             Some((vec!['a', 'b', 'c'], &s[3..]))
         );
+    }
+
+    #[test]
+    fn test_try_parser() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", try_parser(char_parser('a'))),
+            Some((None, ""))
+        );
+        assert_eq!(
+            run_parser_impl("bca", try_parser(char_parser('a'))),
+            Some((None, "bca"))
+        );
+        assert_eq!(
+            run_parser_impl("abc", try_parser(char_parser('a'))),
+            Some((Some('a'), "bc"))
+        );
+        assert_eq!(
+            run_parser_impl(&s, try_parser(char_parser('a'))),
+            Some((Some('a'), &s[1..]))
+        );
+    }
+
+    #[test]
+    fn test_not_parser() {
+        let s: String = "abc".to_string();
+        assert_eq!(
+            run_parser_impl("", not_parser(char_parser('a'))),
+            Some(((), ""))
+        );
+        assert_eq!(
+            run_parser_impl("bca", not_parser(char_parser('a'))),
+            Some(((), "bca"))
+        );
+        assert_eq!(run_parser_impl("abc", not_parser(char_parser('a'))), None);
+        assert_eq!(run_parser_impl(&s, not_parser(char_parser('a'))), None);
     }
 
     #[test]

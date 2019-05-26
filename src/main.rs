@@ -1,3 +1,4 @@
+#[macro_use]
 mod parser_lib;
 
 fn main() {
