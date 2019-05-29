@@ -20,60 +20,66 @@ pub fn run_parser<'a, T>(input: &'a str, p: impl Parser<'a, T>) -> Option<T> {
     Some(run_parser_impl(input, p)?.0)
 }
 
-pub fn empty_parser<'a>() -> impl Parser<'a, ()> {
-    |s| Some(((), s))
+pub fn empty_parser<'a>() -> Box<dyn Parser<'a, ()>> {
+    Box::new(|s| Some(((), s)))
 }
 
-pub fn fail_parser<'a, T>() -> impl Parser<'a, T> {
-    |_| None
+pub fn fail_parser<'a, T>() -> Box<dyn Parser<'a, T>> {
+    Box::new(|_| None)
 }
 
-pub fn fmap<'a, T1, T2>(f: impl Fn(T1) -> T2, p: impl Parser<'a, T1>) -> impl Parser<'a, T2> {
-    move |s| {
+pub fn fmap<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    f: impl Fn(T1) -> T2 + 'a,
+    p: Box<dyn Parser<'b, T1> + 'a>,
+) -> Box<dyn Parser<'b, T2> + 'a> {
+    Box::new(move |s| {
         let (x, s) = p(s)?;
         Some((f(x), s))
-    }
+    })
 }
 
-pub fn satisfies<'a>(f: impl Fn(char) -> bool) -> impl Parser<'a, char> {
-    move |s: ParserState<'a>| {
+pub fn satisfies<'a, 'b>(f: impl Fn(char) -> bool + 'b) -> Box<dyn Parser<'a, char> + 'b> {
+    Box::new(move |s: ParserState<'a>| {
         let c = s.input[s.index..].chars().next()?;
         if f(c) {
             let mut out_s = s;
             out_s.index += 1;
             return Some((c, out_s));
         }
-        return None;
-    }
+        None
+    })
 }
 
-pub fn char_parser<'a>(c: char) -> impl Parser<'a, char> {
+pub fn char_parser<'a>(c: char) -> Box<dyn Parser<'a, char>> {
     satisfies(move |in_c| in_c == c)
 }
 
-pub fn seq<'a, T1, T2>(
-    p1: impl Parser<'a, T1>,
-    p2: impl Parser<'a, T2>,
-) -> impl Parser<'a, (T1, T2)> {
-    move |s| {
+pub fn seq<'a, 'b: 'a, T1: 'a, T2: 'a>(
+    p1: Box<dyn Parser<'b, T1> + 'a>,
+    p2: Box<dyn Parser<'b, T2> + 'a>,
+) -> Box<dyn Parser<'b, (T1, T2)> + 'a> {
+    Box::new(move |s| {
         let (p1_result, s) = p1(s)?;
         let (p2_result, s) = p2(s)?;
         Some(((p1_result, p2_result), s))
-    }
+    })
 }
 
-pub fn choice<'a, T>(p1: impl Parser<'a, T>, p2: impl Parser<'a, T>) -> impl Parser<'a, T> {
-    move |s| {
+pub fn choice<'a, 'b: 'a, T: 'a>(
+    p1: Box<dyn Parser<'b, T> + 'a>,
+    p2: Box<dyn Parser<'b, T> + 'a>,
+) -> Box<dyn Parser<'b, T> + 'a> {
+    Box::new(move |s| {
         let p1_result = p1(s);
         match p1_result {
             Some(_) => p1_result,
             None => p2(s),
         }
-    }
+    })
 }
 
-pub fn many<'a, T>(p: impl Parser<'a, T>) -> impl Parser<'a, Vec<T>> {
-    move |s| {
+pub fn many<'a, 'b: 'a, T: 'a>(p: Box<dyn Parser<'b, T> + 'a>) -> Box<dyn Parser<'b, Vec<T>> + 'a> {
+    Box::new(move |s| {
         let mut results: Vec<T> = Vec::new();
         let mut cur_s = s;
         loop {
@@ -89,11 +95,13 @@ pub fn many<'a, T>(p: impl Parser<'a, T>) -> impl Parser<'a, Vec<T>> {
             }
         }
         Some((results, cur_s))
-    }
+    })
 }
 
-pub fn many1<'a, T>(p: impl Parser<'a, T>) -> impl Parser<'a, Vec<T>> {
-    move |s| {
+pub fn many1<'a, 'b: 'a, T: 'a>(
+    p: Box<dyn Parser<'b, T> + 'a>,
+) -> Box<dyn Parser<'b, Vec<T>> + 'a> {
+    Box::new(move |s| {
         let (x, s) = p(s)?;
         let mut results: Vec<T> = vec![x];
         let mut cur_s = s;
@@ -110,11 +118,11 @@ pub fn many1<'a, T>(p: impl Parser<'a, T>) -> impl Parser<'a, Vec<T>> {
             }
         }
         Some((results, cur_s))
-    }
+    })
 }
 
-pub fn string_parser<'a, 'b>(expected_str: &'b str) -> impl Parser<'a, &'a str> + 'b {
-    move |s: ParserState<'a>| {
+pub fn string_parser<'a, 'b>(expected_str: &'b str) -> Box<dyn Parser<'a, &'a str> + 'b> {
+    Box::new(move |s: ParserState<'a>| {
         let mut expected_iter = expected_str.chars();
         let mut actual_iter = s.input[s.index..].chars();
         loop {
@@ -134,14 +142,16 @@ pub fn string_parser<'a, 'b>(expected_str: &'b str) -> impl Parser<'a, &'a str> 
                 }
             }
         }
-    }
+    })
 }
 
-pub fn parsed_string<'a, T>(p: impl Parser<'a, T>) -> impl Parser<'a, (T, &'a str)> {
-    move |s| {
+pub fn parsed_string<'a, 'b: 'a, T: 'a>(
+    p: Box<dyn Parser<'b, T> + 'a>,
+) -> Box<dyn Parser<'b, (T, &'b str)> + 'a> {
+    Box::new(move |s| {
         let (p_result, p_s) = p(s)?;
         Some(((p_result, &s.input[s.index..p_s.index]), p_s))
-    }
+    })
 }
 
 #[cfg(test)]
@@ -372,5 +382,17 @@ mod tests {
             run_parser_impl(&s, parsed_string(many1(satisfies(|c| c.is_alphanumeric())))),
             Some(((vec!['a', 'b', 'c'], &s[0..3]), &s[3..]))
         );
+    }
+
+    #[test]
+    fn test_complex_parser() {
+        let mut p = fmap(|_| 3, empty_parser());
+        assert_eq!(run_parser_impl("abc def", &p), Some((3, "abc def")));
+        p = fmap(|x: (i32, ())| x.0, seq(p, fail_parser()));
+        assert_eq!(run_parser_impl("abc def", &p), None);
+        let q = fmap(|_| 5, string_parser("abc"));
+        assert_eq!(run_parser_impl("abc def", &q), Some((5, " def")));
+        p = choice(p, q);
+        assert_eq!(run_parser_impl("abc def", &p), Some((5, " def")));
     }
 }
