@@ -1,5 +1,6 @@
 #[macro_use]
 mod parser_lib;
+mod lua_parser;
 mod lua_syntax;
 
 fn main() {
