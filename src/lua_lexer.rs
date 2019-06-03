@@ -1,9 +1,11 @@
-use crate::lua_syntax;
+use crate::lua_lexemes;
 use crate::parser_lib;
 
-fn keyword_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_syntax::Keyword> + 'a> {
+fn keyword_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_lexemes::Keyword> + 'a> {
+    let mut sorted_keywords = lua_lexemes::Keyword::ITEMS;
+    sorted_keywords.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
-        lua_syntax::Keyword::create_sorted_items()
+        sorted_keywords
             .iter()
             .map(|item| {
                 let i = *item;
@@ -13,9 +15,12 @@ fn keyword_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_syntax::Key
     )
 }
 
-fn other_token_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_syntax::OtherToken> + 'a> {
+fn other_token_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_lexemes::OtherToken> + 'a>
+{
+    let mut sorted_tokens = lua_lexemes::OtherToken::ITEMS;
+    sorted_tokens.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
-        lua_syntax::OtherToken::create_sorted_items()
+        sorted_tokens
             .iter()
             .map(|item| {
                 let i = *item;
@@ -179,17 +184,17 @@ fn identifier_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, &'b str> + '
     )
 }
 
-fn token_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_syntax::Token<'b>> + 'a> {
+fn token_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, lua_lexemes::Token<'b>> + 'a> {
     parser_lib::choices(vec![
-        parser_lib::fmap(lua_syntax::Token::Keyword, keyword_lexer()),
-        parser_lib::fmap(lua_syntax::Token::Identifier, identifier_lexer()),
-        parser_lib::fmap(lua_syntax::Token::OtherToken, other_token_lexer()),
+        parser_lib::fmap(lua_lexemes::Token::Keyword, keyword_lexer()),
+        parser_lib::fmap(lua_lexemes::Token::Identifier, identifier_lexer()),
+        parser_lib::fmap(lua_lexemes::Token::OtherToken, other_token_lexer()),
         parser_lib::fmap(
-            |x| lua_syntax::Token::Literal(lua_syntax::Literal::StringLiteral(x)),
+            |x| lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(x)),
             string_literal_lexer(),
         ),
         parser_lib::fmap(
-            |x| lua_syntax::Token::Literal(lua_syntax::Literal::NumberLiteral(x)),
+            |x| lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(x)),
             number_literal_lexer(),
         ),
     ])
@@ -215,16 +220,19 @@ fn whitespace_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, ()> + 'a> {
     )
 }
 
-fn tokens_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, Vec<lua_syntax::Token<'b>>> + 'a> {
+fn tokens_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<'b, Vec<lua_lexemes::Token<'b>>> + 'a> {
     let skip_lexer = || {
         parser_lib::fmap(
             |_| (),
             parser_lib::many(parser_lib::choice(whitespace_lexer(), comment_lexer())),
         )
     };
-    parser_lib::seq2(
-        skip_lexer(),
-        parser_lib::many(parser_lib::seq1(token_lexer(), skip_lexer())),
+    parser_lib::seq1(
+        parser_lib::seq2(
+            skip_lexer(),
+            parser_lib::many(parser_lib::seq1(token_lexer(), skip_lexer())),
+        ),
+        parser_lib::eof(),
     )
 }
 
@@ -234,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_keyword_lexer() {
-        let items = lua_syntax::Keyword::ITEMS;
+        let items = lua_lexemes::Keyword::ITEMS;
         for item in &items {
             assert_eq!(
                 parser_lib::run_parser(item.to_str(), keyword_lexer()),
@@ -245,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_other_token_lexer() {
-        let items = lua_syntax::OtherToken::ITEMS;
+        let items = lua_lexemes::OtherToken::ITEMS;
         for item in &items {
             assert_eq!(
                 parser_lib::run_parser(item.to_str(), other_token_lexer()),
@@ -564,11 +572,11 @@ def
     fn test_token_lexer() {
         assert_eq!(
             parser_lib::run_parser("a", token_lexer()),
-            Some(lua_syntax::Token::Identifier("a"))
+            Some(lua_lexemes::Token::Identifier("a"))
         );
         assert_eq!(
             parser_lib::run_parser("if", token_lexer()),
-            Some(lua_syntax::Token::Keyword(lua_syntax::Keyword::If))
+            Some(lua_lexemes::Token::Keyword(lua_lexemes::Keyword::If))
         );
     }
 
@@ -624,27 +632,37 @@ print(x);
                 tokens_lexer()
             ),
             Some(vec![
-                lua_syntax::Token::Keyword(lua_syntax::Keyword::Local),
-                lua_syntax::Token::Identifier("x"),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::Semi),
-                lua_syntax::Token::Keyword(lua_syntax::Keyword::If),
-                lua_syntax::Token::Identifier("smth"),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::Eq),
-                lua_syntax::Token::Literal(lua_syntax::Literal::StringLiteral(
+                lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Local),
+                lua_lexemes::Token::Identifier("x"),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Semi),
+                lua_lexemes::Token::Keyword(lua_lexemes::Keyword::If),
+                lua_lexemes::Token::Identifier("smth"),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Eq),
+                lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
                     "a string".to_string()
                 )),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::LBrace),
-                lua_syntax::Token::Identifier("x"),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::Assign),
-                lua_syntax::Token::Literal(lua_syntax::Literal::NumberLiteral(3.0e2)),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::Semi),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::RBrace),
-                lua_syntax::Token::Identifier("print"),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::LParen),
-                lua_syntax::Token::Identifier("x"),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::RParen),
-                lua_syntax::Token::OtherToken(lua_syntax::OtherToken::Semi),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LBrace),
+                lua_lexemes::Token::Identifier("x"),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Assign),
+                lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(3.0e2)),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Semi),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RBrace),
+                lua_lexemes::Token::Identifier("print"),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LParen),
+                lua_lexemes::Token::Identifier("x"),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RParen),
+                lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Semi),
             ])
+        );
+        assert_eq!(
+            parser_lib::run_parser(
+                r#"
+local x;
+x = "';
+"#,
+                tokens_lexer()
+            ),
+            None
         );
     }
 }

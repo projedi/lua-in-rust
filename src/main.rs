@@ -1,17 +1,13 @@
 #[macro_use]
 mod parser_lib;
-mod lua_parser;
-mod lua_syntax;
+mod lua_lexemes;
+mod lua_lexer;
 
 fn main() {
     println!("Hello, world!");
-    println!("{}", lua_syntax::Keyword::items_count());
-    for keyword in lua_syntax::Keyword::ITEMS.into_iter() {
-        println!("{:?} => {}", keyword, keyword);
+    println!("{}", lua_lexemes::Keyword::ITEMS_COUNT);
+    for keyword in lua_lexemes::Keyword::ITEMS.into_iter() {
+        println!("{:?} => {}", keyword, keyword.to_str());
     }
-    println!(
-        "{:?} {:?}",
-        lua_syntax::Keyword::create_sorted_items(),
-        lua_syntax::Keyword::ITEMS
-    );
+    println!("{:?}", lua_lexemes::Keyword::ITEMS);
 }

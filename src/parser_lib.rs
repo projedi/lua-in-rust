@@ -242,6 +242,16 @@ pub fn parsed_string<'a, 'b: 'a, T: 'a>(
     })
 }
 
+pub fn eof<'a, 'b: 'a>() -> Box<dyn Parser<'b, ()> + 'a> {
+    Box::new(move |s| {
+        if s.index == s.input.len() {
+            Some(((), s))
+        } else {
+            None
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -747,5 +757,15 @@ mod tests {
         assert_eq!(run_parser_impl("abc def", &q), Some((5, " def")));
         p = choice(p, q);
         assert_eq!(run_parser_impl("abc def", &p), Some((5, " def")));
+    }
+
+    #[test]
+    fn test_eof() {
+        assert_eq!(run_parser_impl("", eof()), Some(((), "")));
+        assert_eq!(run_parser_impl("a", eof()), None);
+        assert_eq!(
+            run_parser_impl("a", seq_(char_parser('a'), eof())),
+            Some(((), ""))
+        );
     }
 }
