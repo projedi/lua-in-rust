@@ -39,7 +39,7 @@ plain_enum!(pub Keyword {
 });
 
 impl Keyword {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Keyword::And => "and",
             Keyword::Break => "break",
@@ -97,7 +97,7 @@ plain_enum!(pub OtherToken {
 });
 
 impl OtherToken {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             OtherToken::Add => "+",
             OtherToken::SubOrUnm => "-",

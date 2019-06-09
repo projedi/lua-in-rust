@@ -361,7 +361,7 @@ def
     }
 
     #[test]
-    fn test_number_literal_lexer() {
+    fn test_number_literal_lexer1() {
         assert_eq!(
             parser_lib::run_parser("0", number_literal_lexer()),
             Some(0.0)
@@ -443,7 +443,10 @@ def
             parser_lib::run_parser(".10e+2", number_literal_lexer()),
             Some(0.1e+2)
         );
+    }
 
+    #[test]
+    fn test_number_literal_lexer2() {
         assert_eq!(
             parser_lib::run_parser("0e-2", number_literal_lexer()),
             Some(0.0e-2)
@@ -525,7 +528,10 @@ def
             parser_lib::run_parser(".10e2", number_literal_lexer()),
             Some(0.1e2)
         );
+    }
 
+    #[test]
+    fn test_number_literal_lexer3() {
         assert_eq!(
             parser_lib::run_parser("0x00", number_literal_lexer()),
             Some(0_f64)
