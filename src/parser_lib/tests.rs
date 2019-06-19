@@ -674,3 +674,377 @@ fn test_mut_recursive_parser() {
     assert_eq!(run_string_parser_impl("230", mut_rec_parser2()), None);
     assert_eq!(run_string_parser_impl("2130", mut_rec_parser2()), None);
 }
+
+mod expression_parser_test {
+    use super::*;
+    use std::rc::Rc;
+
+    #[derive(PartialEq, Eq, Debug, Clone, Copy)]
+    enum BinOp {
+        Add,
+        Sub,
+        Mul,
+        Pow,
+        Comma,
+        Semi,
+    }
+
+    impl std::fmt::Display for BinOp {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+            match &self {
+                BinOp::Add => write!(f, "+"),
+                BinOp::Sub => write!(f, "-"),
+                BinOp::Mul => write!(f, "*"),
+                BinOp::Pow => write!(f, "^"),
+                BinOp::Comma => write!(f, ","),
+                BinOp::Semi => write!(f, ";"),
+            }
+        }
+    }
+
+    #[derive(PartialEq, Eq, Debug, Clone, Copy)]
+    enum UnOp {
+        Neg,
+        Exclaim,
+        Hash,
+        Not,
+    }
+
+    impl std::fmt::Display for UnOp {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+            match &self {
+                UnOp::Neg => write!(f, "-"),
+                UnOp::Exclaim => write!(f, "!"),
+                UnOp::Hash => write!(f, "#"),
+                UnOp::Not => write!(f, "~"),
+            }
+        }
+    }
+
+    #[derive(PartialEq, Debug, Clone)]
+    enum Exp {
+        Num(f64),
+        BinOp(Box<Exp>, BinOp, Box<Exp>),
+        UnOp(UnOp, Box<Exp>),
+    }
+
+    impl std::fmt::Display for Exp {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+            match &self {
+                Exp::Num(n) => write!(f, "{}", n),
+                Exp::BinOp(lhs, op, rhs) => write!(f, "({}{}{})", lhs, op, rhs),
+                Exp::UnOp(op, e) => write!(f, "({}{})", op, e),
+            }
+        }
+    }
+
+    type Parser<'a, 'b, T> = Box<dyn crate::parser_lib::Parser<std::str::Chars<'b>, T> + 'a>;
+
+    fn num_parser<'a, 'b: 'a>() -> Parser<'a, 'b, f64> {
+        seq_bind(
+            parsed_string(many1(satisfies(|c: &char| c.is_ascii_digit()))),
+            |(_, num_str)| match num_str.parse::<f64>() {
+                Ok(num) => fmap(move |_| num, empty_parser()),
+                Err(_) => fail_parser(),
+            },
+        )
+    }
+
+    fn exp_parser<'a, 'b: 'a>() -> Parser<'a, 'b, Exp> {
+        let create_ops = || -> Vec<OpLine<'a, std::str::Chars<'b>, Exp>> {
+            let exp_for_unop = |op: UnOp| -> Rc<dyn Fn(Exp) -> Exp + 'a> {
+                Rc::new(move |e| Exp::UnOp(op, Box::new(e)))
+            };
+            let create_unop = |op: UnOp, c: char| {
+                Rc::new(move || fmap(move |_| exp_for_unop(op), char_parser(c)))
+            };
+            let exp_for_binop = |op: BinOp| -> Rc<dyn Fn(Exp, Exp) -> Exp + 'a> {
+                Rc::new(move |lhs, rhs| Exp::BinOp(Box::new(lhs), op, Box::new(rhs)))
+            };
+            let create_binop = |op: BinOp, c: char| {
+                Rc::new(move || fmap(move |_| exp_for_binop(op), char_parser(c)))
+            };
+            vec![
+                OpLine::BinOp(Assoc::Right, vec![create_binop(BinOp::Pow, '^')]),
+                OpLine::UnOp(vec![
+                    create_unop(UnOp::Neg, '-'),
+                    create_unop(UnOp::Not, '~'),
+                ]),
+                OpLine::BinOp(Assoc::Left, vec![create_binop(BinOp::Mul, '*')]),
+                OpLine::BinOp(
+                    Assoc::Left,
+                    vec![create_binop(BinOp::Add, '+'), create_binop(BinOp::Sub, '-')],
+                ),
+                OpLine::BinOp(
+                    Assoc::Right,
+                    vec![
+                        create_binop(BinOp::Comma, ','),
+                        create_binop(BinOp::Semi, ';'),
+                    ],
+                ),
+                OpLine::UnOp(vec![
+                    create_unop(UnOp::Exclaim, '!'),
+                    create_unop(UnOp::Hash, '#'),
+                ]),
+            ]
+        };
+        build_exp_parser(create_ops, Rc::new(|| fmap(Exp::Num, num_parser())))
+    }
+
+    #[derive(Clone, Copy)]
+    enum Op {
+        BinOp(BinOp, Assoc),
+        UnOp(UnOp),
+    }
+
+    fn create_ops_with_priorities() -> Vec<(Op, usize)> {
+        let ops = vec![
+            vec![Op::BinOp(BinOp::Pow, Assoc::Right)],
+            vec![Op::UnOp(UnOp::Neg), Op::UnOp(UnOp::Not)],
+            vec![Op::BinOp(BinOp::Mul, Assoc::Left)],
+            vec![
+                Op::BinOp(BinOp::Add, Assoc::Left),
+                Op::BinOp(BinOp::Sub, Assoc::Left),
+            ],
+            vec![
+                Op::BinOp(BinOp::Comma, Assoc::Right),
+                Op::BinOp(BinOp::Semi, Assoc::Right),
+            ],
+            vec![Op::UnOp(UnOp::Exclaim), Op::UnOp(UnOp::Hash)],
+        ];
+        let mut result = vec![];
+        for (p, ops) in ops.into_iter().rev().enumerate() {
+            for op in ops {
+                result.push((op, p))
+            }
+        }
+        result
+    }
+
+    struct TestCase {
+        input: String,
+        output: Exp,
+    }
+
+    fn generate_case1(op: (Op, usize)) -> TestCase {
+        let num = |n| Exp::Num(n);
+        let unop = |unop, e| Exp::UnOp(unop, Box::new(e));
+        let binop = |lhs, binop, rhs| Exp::BinOp(Box::new(lhs), binop, Box::new(rhs));
+        match op {
+            (Op::BinOp(op, _), _) => TestCase {
+                input: format!("1{}2", op),
+                output: binop(num(1.0), op, num(2.0)),
+            },
+            (Op::UnOp(op), _) => TestCase {
+                input: format!("{}1", op),
+                output: unop(op, num(1.0)),
+            },
+        }
+    }
+
+    fn select_association((p1, ass1): (usize, Assoc), (p2, ass2): (usize, Assoc)) -> Assoc {
+        if p1 < p2 {
+            Assoc::Right
+        } else if p1 == p2 {
+            assert_eq!(ass1, ass2);
+            ass1
+        } else {
+            Assoc::Left
+        }
+    }
+
+    fn generate_case2(op1: (Op, usize), op2: (Op, usize)) -> TestCase {
+        let num = |n| Exp::Num(n);
+        let unop = |unop, e| Exp::UnOp(unop, Box::new(e));
+        let binop = |lhs, binop, rhs| Exp::BinOp(Box::new(lhs), binop, Box::new(rhs));
+        match (op1, op2) {
+            ((Op::BinOp(op1, ass1), p1), (Op::BinOp(op2, ass2), p2)) => TestCase {
+                input: format!("1{}2{}3", op1, op2),
+                output: match select_association((p1, ass1), (p2, ass2)) {
+                    Assoc::Left => binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0)),
+                    Assoc::Right => binop(num(1.0), op1, binop(num(2.0), op2, num(3.0))),
+                },
+            },
+            ((Op::BinOp(op1, _), _), (Op::UnOp(op2), _)) => TestCase {
+                input: format!("1{}{}2", op1, op2),
+                output: binop(num(1.0), op1, unop(op2, num(2.0))),
+            },
+            ((Op::UnOp(op1), p1), (Op::BinOp(op2, _), p2)) => TestCase {
+                input: format!("{}1{}2", op1, op2),
+                output: if p1 < p2 {
+                    unop(op1, binop(num(1.0), op2, num(2.0)))
+                } else {
+                    binop(unop(op1, num(1.0)), op2, num(2.0))
+                },
+            },
+            ((Op::UnOp(op1), _), (Op::UnOp(op2), _)) => TestCase {
+                input: format!("{}{}1", op1, op2),
+                output: unop(op1, unop(op2, num(1.0))),
+            },
+        }
+    }
+
+    fn generate_case3(op1: (Op, usize), op2: (Op, usize), op3: (Op, usize)) -> TestCase {
+        let num = |n| Exp::Num(n);
+        let unop = |unop, e| Exp::UnOp(unop, Box::new(e));
+        let binop = |lhs, binop, rhs| Exp::BinOp(Box::new(lhs), binop, Box::new(rhs));
+        match (op1, op2, op3) {
+            (
+                (Op::BinOp(op1, ass1), p1),
+                (Op::BinOp(op2, ass2), p2),
+                (Op::BinOp(op3, ass3), p3),
+            ) => TestCase {
+                input: format!("1{}2{}3{}4", op1, op2, op3),
+                output: match (
+                    select_association((p1, ass1), (p2, ass2)),
+                    select_association((p2, ass2), (p3, ass3)),
+                    select_association((p1, ass1), (p3, ass3)),
+                ) {
+                    (Assoc::Left, Assoc::Left, a) => {
+                        assert_eq!(Assoc::Left, a);
+                        binop(
+                            binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0)),
+                            op3,
+                            num(4.0),
+                        )
+                    }
+                    (Assoc::Left, Assoc::Right, _) => binop(
+                        binop(num(1.0), op1, num(2.0)),
+                        op2,
+                        binop(num(3.0), op3, num(4.0)),
+                    ),
+                    (Assoc::Right, _, Assoc::Left) => binop(
+                        binop(num(1.0), op1, binop(num(2.0), op2, num(3.0))),
+                        op3,
+                        num(4.0),
+                    ),
+                    (_, Assoc::Left, Assoc::Right) => binop(
+                        num(1.0),
+                        op1,
+                        binop(binop(num(2.0), op2, num(3.0)), op3, num(4.0)),
+                    ),
+                    (Assoc::Right, Assoc::Right, a) => {
+                        assert_eq!(Assoc::Right, a);
+                        binop(
+                            num(1.0),
+                            op1,
+                            binop(num(2.0), op2, binop(num(3.0), op3, num(4.0))),
+                        )
+                    }
+                },
+            },
+            ((Op::BinOp(op1, ass1), p1), (Op::BinOp(op2, ass2), p2), (Op::UnOp(op3), _)) => {
+                TestCase {
+                    input: format!("1{}2{}{}3", op1, op2, op3),
+                    output: match select_association((p1, ass1), (p2, ass2)) {
+                        Assoc::Left => {
+                            binop(binop(num(1.0), op1, num(2.0)), op2, unop(op3, num(3.0)))
+                        }
+                        Assoc::Right => {
+                            binop(num(1.0), op1, binop(num(2.0), op2, unop(op3, num(3.0))))
+                        }
+                    },
+                }
+            }
+            ((Op::BinOp(op1, ass1), p1), (Op::UnOp(op2), p2), (Op::BinOp(op3, ass3), p3)) => {
+                TestCase {
+                    input: format!("1{}{}2{}3", op1, op2, op3),
+                    output: match select_association((p1, ass1), (p3, ass3)) {
+                        Assoc::Left => {
+                            binop(binop(num(1.0), op1, unop(op2, num(2.0))), op3, num(3.0))
+                        }
+                        Assoc::Right => {
+                            if p2 < p3 {
+                                binop(num(1.0), op1, unop(op2, binop(num(2.0), op3, num(3.0))))
+                            } else {
+                                binop(num(1.0), op1, binop(unop(op2, num(2.0)), op3, num(3.0)))
+                            }
+                        }
+                    },
+                }
+            }
+            ((Op::BinOp(op1, _), _), (Op::UnOp(op2), _), (Op::UnOp(op3), _)) => TestCase {
+                input: format!("1{}{}{}2", op1, op2, op3),
+                output: binop(num(1.0), op1, unop(op2, unop(op3, num(2.0)))),
+            },
+            ((Op::UnOp(op1), p1), (Op::BinOp(op2, ass2), p2), (Op::BinOp(op3, ass3), p3)) => {
+                TestCase {
+                    input: format!("{}1{}2{}3", op1, op2, op3),
+                    output: match select_association((p2, ass2), (p3, ass3)) {
+                        Assoc::Left => {
+                            if p1 < p3 {
+                                unop(op1, binop(binop(num(1.0), op2, num(2.0)), op3, num(3.0)))
+                            } else if p1 < p2 {
+                                binop(unop(op1, binop(num(1.0), op2, num(2.0))), op3, num(3.0))
+                            } else {
+                                binop(binop(unop(op1, num(1.0)), op2, num(2.0)), op3, num(3.0))
+                            }
+                        }
+                        Assoc::Right => {
+                            if p1 < p2 {
+                                unop(op1, binop(num(1.0), op2, binop(num(2.0), op3, num(3.0))))
+                            } else {
+                                binop(unop(op1, num(1.0)), op2, binop(num(2.0), op3, num(3.0)))
+                            }
+                        }
+                    },
+                }
+            }
+            ((Op::UnOp(op1), p1), (Op::BinOp(op2, _), p2), (Op::UnOp(op3), _)) => TestCase {
+                input: format!("{}1{}{}2", op1, op2, op3),
+                output: if p1 < p2 {
+                    unop(op1, binop(num(1.0), op2, unop(op3, num(2.0))))
+                } else {
+                    binop(unop(op1, num(1.0)), op2, unop(op3, num(2.0)))
+                },
+            },
+            ((Op::UnOp(op1), p1), (Op::UnOp(op2), p2), (Op::BinOp(op3, _), p3)) => TestCase {
+                input: format!("{}{}1{}2", op1, op2, op3),
+                output: if p2 < p3 && p1 < p3 {
+                    unop(op1, unop(op2, binop(num(1.0), op3, num(2.0))))
+                } else if p3 < p1 {
+                    binop(unop(op1, unop(op2, num(1.0))), op3, num(2.0))
+                } else {
+                    unop(op1, binop(unop(op2, num(1.0)), op3, num(2.0)))
+                },
+            },
+            ((Op::UnOp(op1), _), (Op::UnOp(op2), _), (Op::UnOp(op3), _)) => TestCase {
+                input: format!("{}{}{}1", op1, op2, op3),
+                output: unop(op1, unop(op2, unop(op3, num(1.0)))),
+            },
+        }
+    }
+
+    fn generate_cases() -> Vec<TestCase> {
+        let mut cases: Vec<TestCase> = vec![];
+        let ops = create_ops_with_priorities();
+        for op in ops.iter() {
+            cases.push(generate_case1(*op))
+        }
+        for op1 in ops.iter() {
+            for op2 in ops.iter() {
+                cases.push(generate_case2(*op1, *op2))
+            }
+        }
+        for op1 in ops.iter() {
+            for op2 in ops.iter() {
+                for op3 in ops.iter() {
+                    cases.push(generate_case3(*op1, *op2, *op3))
+                }
+            }
+        }
+        cases
+    }
+
+    #[test]
+    fn test() {
+        for test_case in generate_cases() {
+            let actual = run_string_parser_impl(&test_case.input, exp_parser()).unwrap();
+            let msg = format!(
+                "input: {}, actual: {}, expected: {}",
+                &test_case.input, &actual.0, &test_case.output
+            );
+            assert_eq!(actual, (test_case.output, ""), "{}", msg);
+        }
+    }
+}
