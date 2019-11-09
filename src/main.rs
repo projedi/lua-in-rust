@@ -2,6 +2,8 @@
 mod parser_lib;
 mod lua_lexemes;
 mod lua_lexer;
+mod lua_parser;
+mod lua_syntax;
 
 fn main() {
     println!("Hello, world!");

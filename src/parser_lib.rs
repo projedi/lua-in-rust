@@ -60,6 +60,17 @@ pub fn fmap<'a, I: 'a, T1: 'a, T2: 'a>(
     })
 }
 
+pub fn map_filter<'a, I: 'a, T1: 'a, T2: 'a>(
+    f: impl Fn(T1) -> Option<T2> + 'a,
+    p: Box<dyn Parser<I, T1> + 'a>,
+) -> Box<dyn Parser<I, T2> + 'a> {
+    Box::new(move |s| {
+        let (x, s) = p(s)?;
+        let x = f(x)?;
+        Some((x, s))
+    })
+}
+
 pub fn satisfies<'a, T, I: Iterator<Item = T>>(
     f: impl Fn(&T) -> bool + 'a,
 ) -> Box<dyn Parser<I, T> + 'a> {

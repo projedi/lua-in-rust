@@ -63,6 +63,69 @@ fn test_fmap() {
 }
 
 #[test]
+fn test_map_filter() {
+    let i = 5;
+    let s: String = "abc".to_string();
+    let some_f = |_: ()| -> Option<i32> { Some(i) };
+    let none_f = |_: ()| -> Option<i32> { None };
+    assert_eq!(
+        run_string_parser_impl("", map_filter(some_f, empty_parser())),
+        Some((i, ""))
+    );
+    assert_eq!(
+        run_string_parser_impl("", map_filter(none_f, empty_parser())),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl("abc", map_filter(some_f, empty_parser())),
+        Some((i, "abc"))
+    );
+    assert_eq!(
+        run_string_parser_impl("abc", map_filter(none_f, empty_parser())),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl(&s, map_filter(some_f, empty_parser())),
+        Some((i, &s[..]))
+    );
+    assert_eq!(
+        run_string_parser_impl(&s, map_filter(none_f, empty_parser())),
+        None
+    );
+
+    assert_eq!(
+        run_string_parser_impl("", map_filter(some_f, fail_parser::<std::str::Chars, ()>())),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl("", map_filter(none_f, fail_parser::<std::str::Chars, ()>())),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl(
+            "abc",
+            map_filter(some_f, fail_parser::<std::str::Chars, ()>())
+        ),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl(
+            "abc",
+            map_filter(none_f, fail_parser::<std::str::Chars, ()>())
+        ),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl(&s, map_filter(some_f, fail_parser::<std::str::Chars, ()>())),
+        None
+    );
+    assert_eq!(
+        run_string_parser_impl(&s, map_filter(none_f, fail_parser::<std::str::Chars, ()>())),
+        None
+    );
+}
+
+#[test]
 fn test_satisfies() {
     let s: String = "  abc".to_string();
     assert_eq!(
