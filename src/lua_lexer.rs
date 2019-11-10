@@ -1,6 +1,13 @@
 use crate::lua_lexemes;
 use crate::parser_lib;
 
+pub fn run_lexer<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
+    match parser_lib::run_string_parser(input, tokens_lexer()) {
+        Some(result) => Ok(result),
+        None => Err("Lexer failed".to_string()),
+    }
+}
+
 fn keyword_lexer<'a, 'b: 'a>(
 ) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, lua_lexemes::Keyword> + 'a> {
     let mut sorted_keywords = lua_lexemes::Keyword::ITEMS;

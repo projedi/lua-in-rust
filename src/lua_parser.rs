@@ -2,6 +2,15 @@ use crate::lua_lexemes;
 use crate::lua_syntax;
 use crate::parser_lib;
 
+pub fn run_parser<'a>(
+    input: &'a [lua_lexemes::Token<'a>],
+) -> Result<lua_syntax::Block<'a>, String> {
+    match parser_lib::run_parser(input.iter(), block_parser()) {
+        Some(result) => Ok(result),
+        None => Err("Parser failed".to_string()),
+    }
+}
+
 fn keyword_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
     k: lua_lexemes::Keyword,
 ) -> Box<dyn parser_lib::Parser<I, &'a lua_lexemes::Token<'a>> + 'a> {

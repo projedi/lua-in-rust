@@ -27,14 +27,6 @@ pub fn run_parser<I, T>(iterator: I, p: impl Parser<I, T>) -> Option<T> {
     Some(run_parser_impl(iterator, p)?.0)
 }
 
-fn run_string_parser_impl<'a, T>(
-    input: &'a str,
-    p: impl Parser<std::str::Chars<'a>, T>,
-) -> Option<(T, &'a str)> {
-    let (x, i) = run_parser_impl(input.chars(), p)?;
-    Some((x, i.as_str()))
-}
-
 pub fn run_string_parser<'a, T>(
     input: &'a str,
     p: impl Parser<std::str::Chars<'a>, T>,

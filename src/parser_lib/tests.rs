@@ -1,5 +1,13 @@
 use super::*;
 
+fn run_string_parser_impl<'a, T>(
+    input: &'a str,
+    p: impl Parser<std::str::Chars<'a>, T>,
+) -> Option<(T, &'a str)> {
+    let (x, i) = run_parser_impl(input.chars(), p)?;
+    Some((x, i.as_str()))
+}
+
 #[test]
 fn test_empty() {
     let s: String = "abc".to_string();

@@ -1,9 +1,6 @@
-#[macro_use]
-mod parser_lib;
-mod lua_lexemes;
-mod lua_lexer;
-mod lua_parser;
-mod lua_syntax;
+extern crate lua_in_rust;
+
+use lua_in_rust::lua_lexemes;
 
 fn main() {
     println!("Hello, world!");
