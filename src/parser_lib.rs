@@ -27,13 +27,6 @@ pub fn run_parser<I, T>(iterator: I, p: impl Parser<I, T>) -> Option<T> {
     Some(run_parser_impl(iterator, p)?.0)
 }
 
-pub fn run_string_parser<'a, T>(
-    input: &'a str,
-    p: impl Parser<std::str::Chars<'a>, T>,
-) -> Option<T> {
-    run_parser(input.chars(), p)
-}
-
 pub fn empty_parser<I>() -> Box<dyn Parser<I, ()>> {
     Box::new(|s| Some(((), s)))
 }
@@ -261,30 +254,6 @@ pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item
     })
 }
 
-pub fn parsed_string<'a, 'b: 'a, T: 'a>(
-    p: Box<dyn Parser<std::str::Chars<'b>, T> + 'a>,
-) -> Box<dyn Parser<std::str::Chars<'b>, (T, &'b str)> + 'a> {
-    Box::new(move |s| {
-        let (p_result, p_s) = p(s.clone())?;
-        Some((
-            (
-                p_result,
-                &s.iterator.as_str()[0..p_s.consumed_count - s.consumed_count],
-            ),
-            p_s,
-        ))
-    })
-}
-
-pub fn string_parser<'a, 'b: 'a>(
-    expected_str: &'a str,
-) -> Box<dyn Parser<std::str::Chars<'b>, &'b str> + 'a> {
-    fmap(
-        |(_, s)| s,
-        parsed_string(sequence_parser(move || expected_str.chars())),
-    )
-}
-
 pub fn eof<'a, I: Iterator + 'a>() -> Box<dyn Parser<I, ()> + 'a> {
     Box::new(move |mut s| match s.iterator.next() {
         None => Some(((), s)),
@@ -298,5 +267,6 @@ pub fn allow_recursion<'a, I, T>(
     Box::new(move |s| pf()(s))
 }
 
+pub mod string;
 #[cfg(test)]
 mod tests;

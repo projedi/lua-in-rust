@@ -2,7 +2,7 @@ use crate::lua_lexemes;
 use crate::parser_lib;
 
 pub fn run_lexer<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
-    match parser_lib::run_string_parser(input, tokens_lexer()) {
+    match parser_lib::string::run_parser(input, tokens_lexer()) {
         Some(result) => Ok(result),
         None => Err("Lexer failed".to_string()),
     }
@@ -17,7 +17,7 @@ fn keyword_lexer<'a, 'b: 'a>(
             .iter()
             .map(|item| {
                 let i = *item;
-                parser_lib::fmap(move |_| i, parser_lib::string_parser(item.to_str()))
+                parser_lib::fmap(move |_| i, parser_lib::string::string_parser(item.to_str()))
             })
             .collect(),
     )
@@ -32,7 +32,7 @@ fn other_token_lexer<'a, 'b: 'a>(
             .iter()
             .map(|item| {
                 let i = *item;
-                parser_lib::fmap(move |_| i, parser_lib::string_parser(item.to_str()))
+                parser_lib::fmap(move |_| i, parser_lib::string::string_parser(item.to_str()))
             })
             .collect(),
     )
@@ -60,7 +60,7 @@ fn string_literal_lexer<'a, 'b: 'a>(
                             parser_lib::fmap(|_| '"', parser_lib::char_parser('"'))
                         },
                         parser_lib::seq_bind(
-                            parser_lib::parsed_string(parser_lib::seq_(
+                            parser_lib::string::parsed_string(parser_lib::seq_(
                                 parser_lib::satisfies(|c: &char| c.is_ascii_digit()),
                                 parser_lib::try_parser(parser_lib::seq_(
                                     parser_lib::satisfies(|c: &char| c.is_ascii_digit()),
@@ -124,7 +124,7 @@ fn long_brackets_lexer<'a, 'b: 'a>(
             parser_lib::fmap(
                 |(_, s)| s,
                 parser_lib::seq1(
-                    parser_lib::parsed_string(parser_lib::many(parser_lib::seq2(
+                    parser_lib::string::parsed_string(parser_lib::many(parser_lib::seq2(
                         parser_lib::not_parser(closing_bracket_parser()),
                         parser_lib::satisfies(|_| true),
                     ))),
@@ -139,9 +139,9 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
 {
     let hexadecimal_parser = || {
         parser_lib::seq_bind(
-            parser_lib::parsed_string(parser_lib::many1(parser_lib::satisfies(|c: &char| {
-                c.is_digit(16)
-            }))),
+            parser_lib::string::parsed_string(parser_lib::many1(parser_lib::satisfies(
+                |c: &char| c.is_digit(16),
+            ))),
             |(_, num_str)| match i64::from_str_radix(num_str, 16) {
                 Ok(num) => parser_lib::fmap(move |_| num as f64, parser_lib::empty_parser()),
                 Err(_) => parser_lib::fail_parser(),
@@ -162,7 +162,7 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
     };
     let decimal_parser = || {
         parser_lib::seq_bind(
-            parser_lib::parsed_string(parser_lib::choices(vec![
+            parser_lib::string::parsed_string(parser_lib::choices(vec![
                 seqs_![
                     integer_parser(),
                     parser_lib::try_parser(seqs_![
@@ -184,7 +184,10 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
         )
     };
     parser_lib::choice(
-        parser_lib::seq2(parser_lib::string_parser("0x"), hexadecimal_parser()),
+        parser_lib::seq2(
+            parser_lib::string::string_parser("0x"),
+            hexadecimal_parser(),
+        ),
         decimal_parser(),
     )
 }
@@ -195,7 +198,7 @@ fn identifier_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<
     let other_sym = parser_lib::satisfies(|c: &char| c.is_alphanumeric() || *c == '_');
     parser_lib::fmap(
         |(_, s)| s,
-        parser_lib::parsed_string(parser_lib::seq(first_sym, parser_lib::many(other_sym))),
+        parser_lib::string::parsed_string(parser_lib::seq(first_sym, parser_lib::many(other_sym))),
     )
 }
 
@@ -218,7 +221,7 @@ fn token_lexer<'a, 'b: 'a>(
 
 fn comment_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, ()> + 'a> {
     seqs_![
-        parser_lib::string_parser("--"),
+        parser_lib::string::string_parser("--"),
         parser_lib::choice(
             parser_lib::fmap(|_| (), long_brackets_lexer()),
             parser_lib::fmap(

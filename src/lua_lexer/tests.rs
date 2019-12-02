@@ -4,7 +4,7 @@ fn run_parser<'a, 'b: 'a, T>(
     input: &'b str,
     p: Box<dyn parser_lib::Parser<std::str::Chars<'b>, T> + 'a>,
 ) -> Option<T> {
-    parser_lib::run_string_parser(input, p)
+    parser_lib::string::run_parser(input, p)
 }
 
 #[test]
@@ -232,21 +232,21 @@ fn test_comment_lexer() {
     assert_eq!(
         run_parser(
             "-- This is a comment. \n And this is not.",
-            parser_lib::parsed_string(comment_lexer())
+            parser_lib::string::parsed_string(comment_lexer())
         ),
         Some(((), "-- This is a comment. "))
     );
     assert_eq!(
         run_parser(
             "--[=[ This is a \n long \n multiline \n comment.]=] And this is not.",
-            parser_lib::parsed_string(comment_lexer())
+            parser_lib::string::parsed_string(comment_lexer())
         ),
         Some(((), "--[=[ This is a \n long \n multiline \n comment.]=]"))
     );
     assert_eq!(
         run_parser(
             "-- [=[ This is a wrong \n example of multiline comment ]=]",
-            parser_lib::parsed_string(comment_lexer())
+            parser_lib::string::parsed_string(comment_lexer())
         ),
         Some(((), "-- [=[ This is a wrong "))
     );
@@ -255,7 +255,10 @@ fn test_comment_lexer() {
 #[test]
 fn test_whitespace_lexer() {
     assert_eq!(
-        run_parser(" \t\na\n", parser_lib::parsed_string(whitespace_lexer())),
+        run_parser(
+            " \t\na\n",
+            parser_lib::string::parsed_string(whitespace_lexer())
+        ),
         Some(((), " \t\n"))
     );
 }

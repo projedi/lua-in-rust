@@ -1,3 +1,4 @@
+use super::string::*;
 use super::*;
 
 fn run_parser<'a, T>(
