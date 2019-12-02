@@ -202,27 +202,28 @@ fn k_not<'a>() -> lua_lexemes::Token<'a> {
     lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Not)
 }
 
-fn full_parse<'a, I: Iterator + 'a, T: 'a>(
+fn run_parser<'a, I: Iterator, T>(
+    iterator: I,
     p: Box<dyn parser_lib::Parser<I, T> + 'a>,
-) -> Box<dyn parser_lib::Parser<I, T> + 'a> {
-    parser_lib::seq1(p, parser_lib::eof())
+) -> Option<T> {
+    parser_lib::run_parser(iterator, parser_lib::seq1(p, parser_lib::eof()))
 }
 
 #[test]
 fn test_funcname_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(funcname_parser())),
+        run_parser(vec![name("abc")].iter(), funcname_parser()),
         Some(lua_syntax::FuncName("abc", vec![], None))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), period(), name("def"), period(), name("ghi")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         Some(lua_syntax::FuncName("abc", vec!["def", "ghi"], None))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 period(),
@@ -233,179 +234,137 @@ fn test_funcname_parser() {
                 name("xyz")
             ]
             .iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         Some(lua_syntax::FuncName("abc", vec!["def", "ghi"], Some("xyz")))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), colon(), name("xyz")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         Some(lua_syntax::FuncName("abc", vec![], Some("xyz")))
     );
 
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), period()].iter(),
-            full_parse(funcname_parser())
-        ),
+        run_parser(vec![name("abc"), period()].iter(), funcname_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), colon()].iter(),
-            full_parse(funcname_parser())
-        ),
+        run_parser(vec![name("abc"), colon()].iter(), funcname_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), period(), colon(), name("xyz")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), colon(), period(), name("xyz")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         None
     );
+    assert_eq!(run_parser(vec![period()].iter(), funcname_parser()), None);
+    assert_eq!(run_parser(vec![colon()].iter(), funcname_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![period()].iter(), full_parse(funcname_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(vec![colon()].iter(), full_parse(funcname_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![period(), colon(), name("xyz")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![colon(), period(), name("xyz")].iter(),
-            full_parse(funcname_parser())
+            funcname_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![period(), name("xyz")].iter(),
-            full_parse(funcname_parser())
-        ),
+        run_parser(vec![period(), name("xyz")].iter(), funcname_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![colon(), name("xyz")].iter(),
-            full_parse(funcname_parser())
-        ),
+        run_parser(vec![colon(), name("xyz")].iter(), funcname_parser()),
         None
     );
 }
 
 #[test]
 fn test_namelist_parser() {
+    assert_eq!(run_parser(vec![].iter(), namelist_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![].iter(), full_parse(namelist_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), name("def")].iter(),
-            full_parse(namelist_parser())
+            namelist_parser()
         ),
         Some(vec!["abc", "def"])
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), name("def"), comma(), name("ghi")].iter(),
-            full_parse(namelist_parser())
+            namelist_parser()
         ),
         Some(vec!["abc", "def", "ghi"])
     );
+    assert_eq!(run_parser(vec![comma()].iter(), namelist_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![comma()].iter(), full_parse(namelist_parser())),
+        run_parser(vec![name("abc"), comma()].iter(), namelist_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), comma()].iter(),
-            full_parse(namelist_parser())
-        ),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(
-            vec![comma(), name("abc")].iter(),
-            full_parse(namelist_parser())
-        ),
+        run_parser(vec![comma(), name("abc")].iter(), namelist_parser()),
         None
     );
 }
 
 #[test]
 fn test_parlist_parser() {
+    assert_eq!(run_parser(vec![].iter(), parlist_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![].iter(), full_parse(parlist_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(vec![varargs()].iter(), full_parse(parlist_parser())),
+        run_parser(vec![varargs()].iter(), parlist_parser()),
         Some(lua_syntax::ParList::VarArgs)
     );
     assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(parlist_parser())),
+        run_parser(vec![name("abc")].iter(), parlist_parser()),
         Some(lua_syntax::ParList::ParList(vec!["abc"], false))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), varargs()].iter(),
-            full_parse(parlist_parser())
+            parlist_parser()
         ),
         Some(lua_syntax::ParList::ParList(vec!["abc"], true))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), name("def")].iter(),
-            full_parse(parlist_parser())
+            parlist_parser()
         ),
         Some(lua_syntax::ParList::ParList(vec!["abc", "def"], false))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), name("def"), comma(), varargs()].iter(),
-            full_parse(parlist_parser())
+            parlist_parser()
         ),
         Some(lua_syntax::ParList::ParList(vec!["abc", "def"], true))
     );
 
     assert_eq!(
-        parser_lib::run_parser(
-            vec![comma(), varargs()].iter(),
-            full_parse(parlist_parser())
-        ),
+        run_parser(vec![comma(), varargs()].iter(), parlist_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), varargs()].iter(),
-            full_parse(parlist_parser())
-        ),
+        run_parser(vec![name("abc"), varargs()].iter(), parlist_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), name("def")].iter(),
-            full_parse(parlist_parser())
-        ),
+        run_parser(vec![name("abc"), name("def")].iter(), parlist_parser()),
         None
     );
 }
@@ -413,30 +372,27 @@ fn test_parlist_parser() {
 #[test]
 fn test_exp_parser_literals() {
     assert_eq!(
-        parser_lib::run_parser(vec![k_nil()].iter(), full_parse(exp_parser())),
+        run_parser(vec![k_nil()].iter(), exp_parser()),
         Some(lua_syntax::Exp::Nil)
     );
     assert_eq!(
-        parser_lib::run_parser(vec![k_false()].iter(), full_parse(exp_parser())),
+        run_parser(vec![k_false()].iter(), exp_parser()),
         Some(lua_syntax::Exp::False)
     );
     assert_eq!(
-        parser_lib::run_parser(vec![k_true()].iter(), full_parse(exp_parser())),
+        run_parser(vec![k_true()].iter(), exp_parser()),
         Some(lua_syntax::Exp::True)
     );
     assert_eq!(
-        parser_lib::run_parser(vec![number(42.0)].iter(), full_parse(exp_parser())),
+        run_parser(vec![number(42.0)].iter(), exp_parser()),
         Some(lua_syntax::Exp::Number(42.0))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![string("abc".to_string())].iter(),
-            full_parse(exp_parser())
-        ),
+        run_parser(vec![string("abc".to_string())].iter(), exp_parser()),
         Some(lua_syntax::Exp::String("abc".to_string()))
     );
     assert_eq!(
-        parser_lib::run_parser(vec![varargs()].iter(), full_parse(exp_parser())),
+        run_parser(vec![varargs()].iter(), exp_parser()),
         Some(lua_syntax::Exp::VarArgs)
     );
 }
@@ -444,9 +400,9 @@ fn test_exp_parser_literals() {
 #[test]
 fn test_field_parser() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_bracket(), k_true(), r_bracket(), assign(), k_nil()].iter(),
-            full_parse(field_parser())
+            field_parser()
         ),
         Some(lua_syntax::Field::Field(
             lua_syntax::Exp::True,
@@ -454,14 +410,11 @@ fn test_field_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), assign(), k_nil()].iter(),
-            full_parse(field_parser())
-        ),
+        run_parser(vec![name("abc"), assign(), k_nil()].iter(), field_parser()),
         Some(lua_syntax::Field::NameField("abc", lua_syntax::Exp::Nil))
     );
     assert_eq!(
-        parser_lib::run_parser(vec![k_nil()].iter(), full_parse(field_parser())),
+        run_parser(vec![k_nil()].iter(), field_parser()),
         Some(lua_syntax::Field::NumberField(lua_syntax::Exp::Nil))
     );
 }
@@ -469,14 +422,11 @@ fn test_field_parser() {
 #[test]
 fn test_tableconstructor_parser() {
     assert_eq!(
-        parser_lib::run_parser(
-            vec![l_brace(), r_brace()].iter(),
-            full_parse(tableconstructor_parser())
-        ),
+        run_parser(vec![l_brace(), r_brace()].iter(), tableconstructor_parser()),
         Some(lua_syntax::TableCtor(None))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_brace(),
                 l_bracket(),
@@ -492,7 +442,7 @@ fn test_tableconstructor_parser() {
                 r_brace()
             ]
             .iter(),
-            full_parse(tableconstructor_parser())
+            tableconstructor_parser()
         ),
         Some(lua_syntax::TableCtor(Some(vec![
             lua_syntax::Field::Field(lua_syntax::Exp::True, lua_syntax::Exp::Nil),
@@ -502,11 +452,11 @@ fn test_tableconstructor_parser() {
     );
 
     assert_eq!(
-        parser_lib::run_parser(vec![l_brace(), r_brace()].iter(), full_parse(exp_parser())),
+        run_parser(vec![l_brace(), r_brace()].iter(), exp_parser()),
         Some(lua_syntax::Exp::TableCtor(lua_syntax::TableCtor(None)))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_brace(),
                 l_bracket(),
@@ -522,7 +472,7 @@ fn test_tableconstructor_parser() {
                 r_brace()
             ]
             .iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::TableCtor(lua_syntax::TableCtor(Some(
             vec![
@@ -536,21 +486,15 @@ fn test_tableconstructor_parser() {
 
 #[test]
 fn test_explist_parser() {
+    assert_eq!(run_parser(vec![].iter(), explist_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![].iter(), full_parse(explist_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(
-            vec![k_true(), comma(), k_false()].iter(),
-            full_parse(explist_parser())
-        ),
+        run_parser(vec![k_true(), comma(), k_false()].iter(), explist_parser()),
         Some(vec![lua_syntax::Exp::True, lua_syntax::Exp::False])
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_true(), comma(), k_false(), comma(), k_nil()].iter(),
-            full_parse(explist_parser())
+            explist_parser()
         ),
         Some(vec![
             lua_syntax::Exp::True,
@@ -563,13 +507,13 @@ fn test_explist_parser() {
 #[test]
 fn test_laststat_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![k_break()].iter(), full_parse(laststat_parser())),
+        run_parser(vec![k_break()].iter(), laststat_parser()),
         Some(lua_syntax::LastStat::Break)
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_return(), k_false(), comma(), k_true()].iter(),
-            full_parse(laststat_parser())
+            laststat_parser()
         ),
         Some(lua_syntax::LastStat::Return(Some(vec![
             lua_syntax::Exp::False,
@@ -577,7 +521,7 @@ fn test_laststat_parser() {
         ])))
     );
     assert_eq!(
-        parser_lib::run_parser(vec![k_return()].iter(), full_parse(laststat_parser())),
+        run_parser(vec![k_return()].iter(), laststat_parser()),
         Some(lua_syntax::LastStat::Return(None))
     );
 }
@@ -585,7 +529,7 @@ fn test_laststat_parser() {
 #[test]
 fn test_stat_parser1() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 comma(),
@@ -598,7 +542,7 @@ fn test_stat_parser1() {
                 k_nil()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::Assign(
             vec![lua_syntax::Var::Name("abc"), lua_syntax::Var::Name("def")],
@@ -610,9 +554,9 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), k_true(), r_paren()].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::FunctionCall(
             lua_syntax::FunctionCall::FunctionCall(
@@ -622,7 +566,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_do(),
                 name("abc"),
@@ -634,7 +578,7 @@ fn test_stat_parser1() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::Block(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -645,9 +589,9 @@ fn test_stat_parser1() {
         )))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_while(), k_true(), k_do(), k_break(), k_end()].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::While(
             lua_syntax::Exp::True,
@@ -655,9 +599,9 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_repeat(), k_break(), k_until(), k_true()].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::Repeat(
             lua_syntax::Block(vec![], Some(lua_syntax::LastStat::Break)),
@@ -665,7 +609,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_if(),
                 k_true(),
@@ -688,7 +632,7 @@ fn test_stat_parser1() {
                 k_end(),
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -729,7 +673,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_if(),
                 k_true(),
@@ -749,7 +693,7 @@ fn test_stat_parser1() {
                 k_end(),
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -785,7 +729,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_if(),
                 k_true(),
@@ -803,7 +747,7 @@ fn test_stat_parser1() {
                 k_end(),
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -833,7 +777,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_if(),
                 k_true(),
@@ -848,7 +792,7 @@ fn test_stat_parser1() {
                 k_end(),
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -873,7 +817,7 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_if(),
                 k_true(),
@@ -886,7 +830,7 @@ fn test_stat_parser1() {
                 k_end(),
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -908,9 +852,9 @@ fn test_stat_parser1() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_if(), k_true(), k_then(), k_return(), number(1.0), k_end(),].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::If(
             (
@@ -931,7 +875,7 @@ fn test_stat_parser1() {
 #[test]
 fn test_stat_parser2() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_for(),
                 name("abc"),
@@ -946,7 +890,7 @@ fn test_stat_parser2() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::For(
             "abc",
@@ -957,7 +901,7 @@ fn test_stat_parser2() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_for(),
                 name("abc"),
@@ -971,33 +915,12 @@ fn test_stat_parser2() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![
-                k_for(),
-                name("abc"),
-                assign(),
-                k_true(),
-                comma(),
-                k_false(),
-                comma(),
-                k_nil(),
-                comma(),
-                k_do(),
-                k_break(),
-                k_end()
-            ]
-            .iter(),
-            full_parse(stat_parser())
-        ),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_for(),
                 name("abc"),
@@ -1008,18 +931,39 @@ fn test_stat_parser2() {
                 comma(),
                 k_nil(),
                 comma(),
+                k_do(),
+                k_break(),
+                k_end()
+            ]
+            .iter(),
+            stat_parser()
+        ),
+        None
+    );
+    assert_eq!(
+        run_parser(
+            vec![
+                k_for(),
+                name("abc"),
+                assign(),
+                k_true(),
+                comma(),
+                k_false(),
+                comma(),
+                k_nil(),
+                comma(),
                 k_true(),
                 k_do(),
                 k_break(),
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_for(),
                 name("abc"),
@@ -1034,7 +978,7 @@ fn test_stat_parser2() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::ForIn(
             vec!["abc", "def"],
@@ -1043,7 +987,7 @@ fn test_stat_parser2() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_function(),
                 name("abc"),
@@ -1056,7 +1000,7 @@ fn test_stat_parser2() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::Function(
             lua_syntax::FuncName("abc", vec!["def"], None),
@@ -1067,7 +1011,7 @@ fn test_stat_parser2() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_local(),
                 k_function(),
@@ -1079,7 +1023,7 @@ fn test_stat_parser2() {
                 k_end()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::LocalFunctionDecl(
             "abc",
@@ -1090,14 +1034,14 @@ fn test_stat_parser2() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_local(), name("abc"), comma(), name("def")].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::LocalVarDecl(vec!["abc", "def"], None))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_local(),
                 name("abc"),
@@ -1109,7 +1053,7 @@ fn test_stat_parser2() {
                 k_false()
             ]
             .iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         Some(lua_syntax::Stat::LocalVarDecl(
             vec!["abc", "def"],
@@ -1117,47 +1061,38 @@ fn test_stat_parser2() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_local(), name("abc"), comma(), name("def"), assign(),].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_local(), name("abc"), comma(), assign(),].iter(),
-            full_parse(stat_parser())
+            stat_parser()
         ),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(vec![k_local(), assign(),].iter(), full_parse(stat_parser())),
+        run_parser(vec![k_local(), assign(),].iter(), stat_parser()),
         None
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![k_local(), name("abc"), comma(),].iter(),
-            full_parse(stat_parser())
-        ),
+        run_parser(vec![k_local(), name("abc"), comma(),].iter(), stat_parser()),
         None
     );
-    assert_eq!(
-        parser_lib::run_parser(vec![k_local(),].iter(), full_parse(stat_parser())),
-        None
-    );
+    assert_eq!(run_parser(vec![k_local(),].iter(), stat_parser()), None);
 }
 
 #[test]
 fn test_block_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![].iter(), full_parse(block_parser())),
+        run_parser(vec![].iter(), block_parser()),
         Some(lua_syntax::Block(vec![], None))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), assign(), k_true()].iter(),
-            full_parse(block_parser())
-        ),
+        run_parser(vec![name("abc"), assign(), k_true()].iter(), block_parser()),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
                 vec![lua_syntax::Var::Name("abc")],
@@ -1167,9 +1102,9 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), assign(), k_true(), semi()].iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -1180,7 +1115,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1190,7 +1125,7 @@ fn test_block_parser() {
                 k_false()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1207,7 +1142,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1218,7 +1153,7 @@ fn test_block_parser() {
                 k_false()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1235,7 +1170,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1246,7 +1181,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1263,7 +1198,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1275,7 +1210,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1293,13 +1228,13 @@ fn test_block_parser() {
     );
 
     assert_eq!(
-        parser_lib::run_parser(vec![k_break()].iter(), full_parse(block_parser())),
+        run_parser(vec![k_break()].iter(), block_parser()),
         Some(lua_syntax::Block(vec![], Some(lua_syntax::LastStat::Break)))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), assign(), k_true(), k_break()].iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -1310,9 +1245,9 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), assign(), k_true(), semi(), k_break()].iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -1323,7 +1258,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1334,7 +1269,7 @@ fn test_block_parser() {
                 k_break()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1351,7 +1286,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1363,7 +1298,7 @@ fn test_block_parser() {
                 k_break()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1380,7 +1315,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1392,7 +1327,7 @@ fn test_block_parser() {
                 k_break()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1409,7 +1344,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1422,7 +1357,7 @@ fn test_block_parser() {
                 k_break()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1440,13 +1375,13 @@ fn test_block_parser() {
     );
 
     assert_eq!(
-        parser_lib::run_parser(vec![k_break(), semi()].iter(), full_parse(block_parser())),
+        run_parser(vec![k_break(), semi()].iter(), block_parser()),
         Some(lua_syntax::Block(vec![], Some(lua_syntax::LastStat::Break)))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), assign(), k_true(), k_break(), semi()].iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -1457,9 +1392,9 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), assign(), k_true(), semi(), k_break(), semi()].iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![lua_syntax::Stat::Assign(
@@ -1470,7 +1405,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1482,7 +1417,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1499,7 +1434,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1512,7 +1447,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1529,7 +1464,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1542,7 +1477,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1559,7 +1494,7 @@ fn test_block_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 assign(),
@@ -1573,7 +1508,7 @@ fn test_block_parser() {
                 semi()
             ]
             .iter(),
-            full_parse(block_parser())
+            block_parser()
         ),
         Some(lua_syntax::Block(
             vec![
@@ -1590,12 +1525,9 @@ fn test_block_parser() {
         ))
     );
 
+    assert_eq!(run_parser(vec![semi()].iter(), block_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![semi()].iter(), full_parse(block_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(vec![semi(), k_break()].iter(), full_parse(block_parser())),
+        run_parser(vec![semi(), k_break()].iter(), block_parser()),
         None
     );
 }
@@ -1603,9 +1535,9 @@ fn test_block_parser() {
 #[test]
 fn test_funcbody_parser() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), r_paren(), k_break(), k_end()].iter(),
-            full_parse(funcbody_parser())
+            funcbody_parser()
         ),
         Some(lua_syntax::FuncBody(
             None,
@@ -1613,9 +1545,9 @@ fn test_funcbody_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), varargs(), r_paren(), k_break(), k_end()].iter(),
-            full_parse(funcbody_parser())
+            funcbody_parser()
         ),
         Some(lua_syntax::FuncBody(
             Some(lua_syntax::ParList::VarArgs),
@@ -1624,9 +1556,9 @@ fn test_funcbody_parser() {
     );
 
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![k_function(), l_paren(), r_paren(), k_break(), k_end()].iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::Function(Box::new(lua_syntax::FuncBody(
             None,
@@ -1634,7 +1566,7 @@ fn test_funcbody_parser() {
         ))))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 k_function(),
                 l_paren(),
@@ -1644,7 +1576,7 @@ fn test_funcbody_parser() {
                 k_end()
             ]
             .iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::Function(Box::new(lua_syntax::FuncBody(
             Some(lua_syntax::ParList::VarArgs),
@@ -1656,11 +1588,11 @@ fn test_funcbody_parser() {
 #[test]
 fn test_var_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(var_parser())),
+        run_parser(vec![name("abc")].iter(), var_parser()),
         Some(lua_syntax::Var::Name("abc"))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 l_bracket(),
@@ -1673,7 +1605,7 @@ fn test_var_parser() {
                 r_bracket()
             ]
             .iter(),
-            full_parse(var_parser())
+            var_parser()
         ),
         Some(lua_syntax::Var::Index(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Field(
@@ -1687,7 +1619,7 @@ fn test_var_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_paren(),
                 name("abc"),
@@ -1702,7 +1634,7 @@ fn test_var_parser() {
                 r_bracket()
             ]
             .iter(),
-            full_parse(var_parser())
+            var_parser()
         ),
         Some(lua_syntax::Var::Index(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Field(
@@ -1718,7 +1650,7 @@ fn test_var_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 l_paren(),
@@ -1733,7 +1665,7 @@ fn test_var_parser() {
                 r_bracket()
             ]
             .iter(),
-            full_parse(var_parser())
+            var_parser()
         ),
         Some(lua_syntax::Var::Index(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Field(
@@ -1755,18 +1687,15 @@ fn test_var_parser() {
 
 #[test]
 fn test_varlist_parser() {
+    assert_eq!(run_parser(vec![].iter(), varlist_parser()), None);
     assert_eq!(
-        parser_lib::run_parser(vec![].iter(), full_parse(varlist_parser())),
-        None
-    );
-    assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(varlist_parser())),
+        run_parser(vec![name("abc")].iter(), varlist_parser()),
         Some(vec![lua_syntax::Var::Name("abc")])
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), comma(), name("def")].iter(),
-            full_parse(varlist_parser())
+            varlist_parser()
         ),
         Some(vec![
             lua_syntax::Var::Name("abc"),
@@ -1774,10 +1703,7 @@ fn test_varlist_parser() {
         ])
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), comma()].iter(),
-            full_parse(varlist_parser())
-        ),
+        run_parser(vec![name("abc"), comma()].iter(), varlist_parser()),
         None
     );
 }
@@ -1785,20 +1711,17 @@ fn test_varlist_parser() {
 #[test]
 fn test_args_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![l_paren(), r_paren()].iter(), full_parse(args_parser())),
+        run_parser(vec![l_paren(), r_paren()].iter(), args_parser()),
         Some(lua_syntax::Args::Args(None))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![l_paren(), k_true(), r_paren()].iter(),
-            full_parse(args_parser())
-        ),
+        run_parser(vec![l_paren(), k_true(), r_paren()].iter(), args_parser()),
         Some(lua_syntax::Args::Args(Some(vec![lua_syntax::Exp::True])))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), k_true(), comma(), k_false(), r_paren()].iter(),
-            full_parse(args_parser())
+            args_parser()
         ),
         Some(lua_syntax::Args::Args(Some(vec![
             lua_syntax::Exp::True,
@@ -1806,23 +1729,17 @@ fn test_args_parser() {
         ])))
     );
     assert_eq!(
-        parser_lib::run_parser(vec![l_brace(), r_brace()].iter(), full_parse(args_parser())),
+        run_parser(vec![l_brace(), r_brace()].iter(), args_parser()),
         Some(lua_syntax::Args::TableCtor(lua_syntax::TableCtor(None)))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![l_brace(), k_true(), r_brace()].iter(),
-            full_parse(args_parser())
-        ),
+        run_parser(vec![l_brace(), k_true(), r_brace()].iter(), args_parser()),
         Some(lua_syntax::Args::TableCtor(lua_syntax::TableCtor(Some(
             vec![lua_syntax::Field::NumberField(lua_syntax::Exp::True)]
         ))))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![string("abc".to_string())].iter(),
-            full_parse(args_parser())
-        ),
+        run_parser(vec![string("abc".to_string())].iter(), args_parser()),
         Some(lua_syntax::Args::String("abc".to_string()))
     );
 }
@@ -1830,9 +1747,9 @@ fn test_args_parser() {
 #[test]
 fn test_functioncall_parser() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), r_paren()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1840,9 +1757,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_brace(), r_brace()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1850,9 +1767,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), string("def".to_string())].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1860,9 +1777,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), name("abc"), r_paren(), l_paren(), r_paren()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -1872,9 +1789,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), name("abc"), r_paren(), l_brace(), r_brace()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -1884,9 +1801,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), name("abc"), r_paren(), string("def".to_string())].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -1896,9 +1813,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), r_paren(), l_paren(), r_paren()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -1909,9 +1826,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), r_paren(), l_brace(), r_brace()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -1922,9 +1839,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), r_paren(), string("def".to_string())].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -1936,9 +1853,9 @@ fn test_functioncall_parser() {
     );
 
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), colon(), name("def"), l_paren(), r_paren()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1947,9 +1864,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), colon(), name("def"), l_brace(), r_brace()].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1958,9 +1875,9 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), colon(), name("def"), string("xyz".to_string())].iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -1969,7 +1886,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_paren(),
                 name("abc"),
@@ -1980,7 +1897,7 @@ fn test_functioncall_parser() {
                 r_paren()
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -1991,7 +1908,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_paren(),
                 name("abc"),
@@ -2002,7 +1919,7 @@ fn test_functioncall_parser() {
                 r_brace()
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -2013,7 +1930,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 l_paren(),
                 name("abc"),
@@ -2023,7 +1940,7 @@ fn test_functioncall_parser() {
                 string("xyz".to_string())
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
@@ -2034,7 +1951,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 l_paren(),
@@ -2045,7 +1962,7 @@ fn test_functioncall_parser() {
                 r_paren()
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -2057,7 +1974,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 l_paren(),
@@ -2068,7 +1985,7 @@ fn test_functioncall_parser() {
                 r_brace()
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -2080,7 +1997,7 @@ fn test_functioncall_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 name("abc"),
                 l_paren(),
@@ -2090,7 +2007,7 @@ fn test_functioncall_parser() {
                 string("xyz".to_string())
             ]
             .iter(),
-            full_parse(functioncall_parser())
+            functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
@@ -2106,15 +2023,15 @@ fn test_functioncall_parser() {
 #[test]
 fn test_prefixexp_parser() {
     assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(prefixexp_parser())),
+        run_parser(vec![name("abc")].iter(), prefixexp_parser()),
         Some(lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name(
             "abc"
         ))))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![name("abc"), l_paren(), r_paren()].iter(),
-            full_parse(prefixexp_parser())
+            prefixexp_parser()
         ),
         Some(lua_syntax::PrefixExp::FunctionCall(Box::new(
             lua_syntax::FunctionCall::FunctionCall(
@@ -2124,24 +2041,21 @@ fn test_prefixexp_parser() {
         )))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![l_paren(), k_true(), r_paren()].iter(),
-            full_parse(prefixexp_parser())
+            prefixexp_parser()
         ),
         Some(lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::True)))
     );
 
     assert_eq!(
-        parser_lib::run_parser(vec![name("abc")].iter(), full_parse(exp_parser())),
+        run_parser(vec![name("abc")].iter(), exp_parser()),
         Some(lua_syntax::Exp::PrefixExp(lua_syntax::PrefixExp::Var(
             Box::new(lua_syntax::Var::Name("abc"))
         )))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![name("abc"), l_paren(), r_paren()].iter(),
-            full_parse(exp_parser())
-        ),
+        run_parser(vec![name("abc"), l_paren(), r_paren()].iter(), exp_parser()),
         Some(lua_syntax::Exp::PrefixExp(
             lua_syntax::PrefixExp::FunctionCall(Box::new(lua_syntax::FunctionCall::FunctionCall(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
@@ -2150,10 +2064,7 @@ fn test_prefixexp_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
-            vec![l_paren(), k_true(), r_paren()].iter(),
-            full_parse(exp_parser())
-        ),
+        run_parser(vec![l_paren(), k_true(), r_paren()].iter(), exp_parser()),
         Some(lua_syntax::Exp::PrefixExp(lua_syntax::PrefixExp::Exp(
             Box::new(lua_syntax::Exp::True)
         )))
@@ -2163,9 +2074,9 @@ fn test_prefixexp_parser() {
 #[test]
 fn test_exp_ops_parser() {
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![number(1.0), k_and(), number(2.0), k_or(), number(3.0)].iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::BinOp(
             Box::new(lua_syntax::Exp::BinOp(
@@ -2178,9 +2089,9 @@ fn test_exp_ops_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![number(1.0), k_or(), number(2.0), k_and(), number(3.0)].iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::BinOp(
             Box::new(lua_syntax::Exp::Number(1.0)),
@@ -2193,7 +2104,7 @@ fn test_exp_ops_parser() {
         ))
     );
     assert_eq!(
-        parser_lib::run_parser(
+        run_parser(
             vec![
                 number(1.0),
                 plus(),
@@ -2209,7 +2120,7 @@ fn test_exp_ops_parser() {
                 number(6.0)
             ]
             .iter(),
-            full_parse(exp_parser())
+            exp_parser()
         ),
         Some(lua_syntax::Exp::BinOp(
             Box::new(lua_syntax::Exp::BinOp(
@@ -2352,7 +2263,7 @@ mod ops_tests {
     fn test_exp_ops_parser_comprehensive() {
         for test_case in generate_cases() {
             assert_eq!(
-                parser_lib::run_parser(test_case.input.iter(), full_parse(exp_parser())),
+                run_parser(test_case.input.iter(), exp_parser()),
                 Some(test_case.output)
             );
         }
