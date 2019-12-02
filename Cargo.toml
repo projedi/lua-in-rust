@@ -5,3 +5,6 @@ authors = ["Alexander Shabalin <shabalyn.a@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+
+[profile.test]
+opt-level = 3
