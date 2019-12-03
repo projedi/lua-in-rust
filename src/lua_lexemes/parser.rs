@@ -1,15 +1,16 @@
 use crate::lua_lexemes;
 use crate::parser_lib;
+use crate::utils::located_chars::{make_located, LocatedChars, Location};
 
-pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
-    match parser_lib::string::run_parser(input, tokens_lexer()) {
+pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::LocatedToken<'a>>, String> {
+    match parser_lib::run_parser(make_located(input), tokens_lexer()) {
         (Some(result), _) => Ok(result),
         (None, _) => Err("Lexer failed".to_string()),
     }
 }
 
 fn keyword_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, lua_lexemes::Keyword> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::Keyword)> + 'a> {
     let mut sorted_keywords = lua_lexemes::Keyword::ITEMS;
     sorted_keywords.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
@@ -17,14 +18,17 @@ fn keyword_lexer<'a, 'b: 'a>(
             .iter()
             .map(|item| {
                 let i = *item;
-                parser_lib::fmap(move |_| i, parser_lib::string::string_parser(item.to_str()))
+                parser_lib::fmap(
+                    move |(loc, _)| (loc, i),
+                    parser_lib::string::string_parser(item.to_str()),
+                )
             })
             .collect(),
     )
 }
 
 fn other_token_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, lua_lexemes::OtherToken> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::OtherToken)> + 'a> {
     let mut sorted_tokens = lua_lexemes::OtherToken::ITEMS;
     sorted_tokens.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
@@ -32,69 +36,94 @@ fn other_token_lexer<'a, 'b: 'a>(
             .iter()
             .map(|item| {
                 let i = *item;
-                parser_lib::fmap(move |_| i, parser_lib::string::string_parser(item.to_str()))
+                parser_lib::fmap(
+                    move |(loc, _)| (loc, i),
+                    parser_lib::string::string_parser(item.to_str()),
+                )
             })
             .collect(),
     )
 }
 
 fn string_literal_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, String> + 'a> {
-    let string_literal_char_lexer =
-        |quote: char| -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, char> + 'a> {
-            parser_lib::choice(
-                parser_lib::seq2(
-                    parser_lib::char_parser('\\'),
-                    parser_lib::choices(vec![
-                        parser_lib::fmap(|_| '\x07', parser_lib::char_parser('a')),
-                        parser_lib::fmap(|_| '\x08', parser_lib::char_parser('b')),
-                        parser_lib::fmap(|_| '\x0C', parser_lib::char_parser('f')),
-                        parser_lib::fmap(|_| '\n', parser_lib::char_parser('n')),
-                        parser_lib::fmap(|_| '\r', parser_lib::char_parser('r')),
-                        parser_lib::fmap(|_| '\t', parser_lib::char_parser('t')),
-                        parser_lib::fmap(|_| '\x0B', parser_lib::char_parser('v')),
-                        parser_lib::fmap(|_| '\\', parser_lib::char_parser('\\')),
-                        if quote == '\'' {
-                            parser_lib::fmap(|_| '\'', parser_lib::char_parser('\''))
-                        } else {
-                            parser_lib::fmap(|_| '"', parser_lib::char_parser('"'))
-                        },
-                        parser_lib::seq_bind(
-                            parser_lib::string::parsed_string(parser_lib::seq_(
-                                parser_lib::satisfies(|c: &char| c.is_ascii_digit()),
-                                parser_lib::try_parser(parser_lib::seq_(
-                                    parser_lib::satisfies(|c: &char| c.is_ascii_digit()),
-                                    parser_lib::try_parser(parser_lib::satisfies(|c: &char| {
-                                        c.is_ascii_digit()
-                                    })),
-                                )),
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, String)> + 'a> {
+    let string_literal_char_lexer = |quote: char| -> Box<
+        dyn parser_lib::Parser<LocatedChars<'b>, (Location, char)> + 'a,
+    > {
+        parser_lib::choice(
+            parser_lib::seq2(
+                parser_lib::string::char_parser('\\'),
+                parser_lib::choices(vec![
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\x07'),
+                        parser_lib::string::char_parser('a'),
+                    ),
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\x08'),
+                        parser_lib::string::char_parser('b'),
+                    ),
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\x0C'),
+                        parser_lib::string::char_parser('f'),
+                    ),
+                    parser_lib::fmap(|(loc, _)| (loc, '\n'), parser_lib::string::char_parser('n')),
+                    parser_lib::fmap(|(loc, _)| (loc, '\r'), parser_lib::string::char_parser('r')),
+                    parser_lib::fmap(|(loc, _)| (loc, '\t'), parser_lib::string::char_parser('t')),
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\x0B'),
+                        parser_lib::string::char_parser('v'),
+                    ),
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\\'),
+                        parser_lib::string::char_parser('\\'),
+                    ),
+                    if quote == '\'' {
+                        parser_lib::fmap(
+                            |(loc, _)| (loc, '\''),
+                            parser_lib::string::char_parser('\''),
+                        )
+                    } else {
+                        parser_lib::fmap(
+                            |(loc, _)| (loc, '"'),
+                            parser_lib::string::char_parser('"'),
+                        )
+                    },
+                    parser_lib::seq_bind(
+                        parser_lib::string::parsed_string(parser_lib::seq_(
+                            parser_lib::satisfies(|c: &(_, char)| c.1.is_ascii_digit()),
+                            parser_lib::try_parser(parser_lib::seq_(
+                                parser_lib::satisfies(|c: &(_, char)| c.1.is_ascii_digit()),
+                                parser_lib::try_parser(parser_lib::satisfies(|c: &(_, char)| {
+                                    c.1.is_ascii_digit()
+                                })),
                             )),
-                            |(_, code_str)| match code_str.parse::<u8>() {
-                                Ok(code) => parser_lib::fmap(
-                                    move |_| char::from(code),
-                                    parser_lib::empty_parser(),
-                                ),
-                                Err(_) => parser_lib::fail_parser(),
-                            },
-                        ),
-                    ]),
-                ),
-                parser_lib::satisfies(move |c: &char| *c != '\\' && *c != quote),
-            )
-        };
+                        )),
+                        |(_, (loc, code_str))| match code_str.parse::<u8>() {
+                            Ok(code) => parser_lib::fmap(
+                                move |_| (loc, char::from(code)),
+                                parser_lib::empty_parser(),
+                            ),
+                            Err(_) => parser_lib::fail_parser(),
+                        },
+                    ),
+                ]),
+            ),
+            parser_lib::satisfies(move |c: &(_, char)| c.1 != '\\' && c.1 != quote),
+        )
+    };
     parser_lib::map_filter(
         |result| result,
         parser_lib::try_parser(parser_lib::seq_bind(
-            parser_lib::satisfies(|in_c: &char| *in_c == '\'' || *in_c == '"'),
-            move |opening_quote| {
+            parser_lib::satisfies(|in_c: &(_, char)| in_c.1 == '\'' || in_c.1 == '"'),
+            move |(loc, opening_quote)| {
                 parser_lib::seq_bind(
                     parser_lib::seq1(
                         parser_lib::many(string_literal_char_lexer(opening_quote)),
-                        parser_lib::char_parser(opening_quote),
+                        parser_lib::string::char_parser(opening_quote),
                     ),
-                    |chars| {
+                    move |chars| {
                         parser_lib::fmap(
-                            move |_| chars.iter().collect(),
+                            move |_| (loc, chars.iter().map(|(_, c)| c).collect()),
                             parser_lib::empty_parser(),
                         )
                     },
@@ -105,30 +134,30 @@ fn string_literal_lexer<'a, 'b: 'a>(
 }
 
 fn long_brackets_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, &'b str> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, &'b str)> + 'a> {
     parser_lib::seq_bind(
         parser_lib::seq1(
             parser_lib::seq1(
-                parser_lib::seq2(
-                    parser_lib::char_parser('['),
-                    parser_lib::many(parser_lib::char_parser('=')),
+                parser_lib::seq(
+                    parser_lib::fmap(|(loc, _)| loc, parser_lib::string::char_parser('[')),
+                    parser_lib::many(parser_lib::string::char_parser('=')),
                 ),
-                parser_lib::char_parser('['),
+                parser_lib::string::char_parser('['),
             ),
-            parser_lib::try_parser(parser_lib::char_parser('\n')),
+            parser_lib::try_parser(parser_lib::string::char_parser('\n')),
         ),
-        |bracket_level| {
+        |(loc, bracket_level)| {
             let bracket_level_len = bracket_level.len();
             let closing_bracket_parser = || {
-                let mut p = parser_lib::char_parser(']');
+                let mut p = parser_lib::string::char_parser(']');
                 for _ in 0..bracket_level_len {
-                    p = parser_lib::seq1(p, parser_lib::char_parser('='));
+                    p = parser_lib::seq1(p, parser_lib::string::char_parser('='));
                 }
-                p = parser_lib::seq1(p, parser_lib::char_parser(']'));
+                p = parser_lib::seq1(p, parser_lib::string::char_parser(']'));
                 p
             };
             parser_lib::fmap(
-                |(_, s)| s,
+                move |(_, (_, s))| (loc, s),
                 parser_lib::seq1(
                     parser_lib::string::parsed_string(parser_lib::many(parser_lib::seq2(
                         parser_lib::not_parser(closing_bracket_parser()),
@@ -141,27 +170,31 @@ fn long_brackets_lexer<'a, 'b: 'a>(
     )
 }
 
-fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, f64> + 'a>
-{
+fn number_literal_lexer<'a, 'b: 'a>(
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, f64)> + 'a> {
     let hexadecimal_parser = || {
         parser_lib::seq_bind(
             parser_lib::string::parsed_string(parser_lib::many1(parser_lib::satisfies(
-                |c: &char| c.is_digit(16),
+                |c: &(_, char)| c.1.is_digit(16),
             ))),
-            |(_, num_str)| match i64::from_str_radix(num_str, 16) {
+            |(_, (_, num_str))| match i64::from_str_radix(num_str, 16) {
                 Ok(num) => parser_lib::fmap(move |_| num as f64, parser_lib::empty_parser()),
                 Err(_) => parser_lib::fail_parser(),
             },
         )
     };
-    let integer_parser = || parser_lib::many1(parser_lib::satisfies(|c: &char| c.is_ascii_digit()));
-    let point_parser = || parser_lib::char_parser('.');
+    let integer_parser =
+        || parser_lib::many1(parser_lib::satisfies(|c: &(_, char)| c.1.is_ascii_digit()));
+    let point_parser = || parser_lib::string::char_parser('.');
     let exponent_parser = || {
         seqs_![
-            parser_lib::choice(parser_lib::char_parser('E'), parser_lib::char_parser('e')),
+            parser_lib::choice(
+                parser_lib::string::char_parser('E'),
+                parser_lib::string::char_parser('e')
+            ),
             parser_lib::try_parser(parser_lib::choice(
-                parser_lib::char_parser('+'),
-                parser_lib::char_parser('-')
+                parser_lib::string::char_parser('+'),
+                parser_lib::string::char_parser('-')
             )),
             integer_parser(),
         ]
@@ -183,8 +216,8 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
                     parser_lib::try_parser(exponent_parser()),
                 ],
             ])),
-            |(_, num_str)| match num_str.parse::<f64>() {
-                Ok(num) => parser_lib::fmap(move |_| num, parser_lib::empty_parser()),
+            |(_, (loc, num_str)): (_, (Location, &'b str))| match num_str.parse::<f64>() {
+                Ok(num) => parser_lib::fmap(move |_| (loc, num), parser_lib::empty_parser()),
                 Err(_) => parser_lib::fail_parser(),
             },
         )
@@ -192,8 +225,8 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
     parser_lib::map_filter(
         |result| result,
         parser_lib::try_parser(parser_lib::choice(
-            parser_lib::seq2(
-                parser_lib::string::string_parser("0x"),
+            parser_lib::seq(
+                parser_lib::fmap(|(loc, _)| loc, parser_lib::string::string_parser("0x")),
                 hexadecimal_parser(),
             ),
             decimal_parser(),
@@ -201,10 +234,10 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
     )
 }
 
-fn identifier_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, &'b str> + 'a>
-{
-    let first_sym = parser_lib::satisfies(|c: &char| c.is_alphabetic() || *c == '_');
-    let other_sym = parser_lib::satisfies(|c: &char| c.is_alphanumeric() || *c == '_');
+fn identifier_lexer<'a, 'b: 'a>(
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, &'b str)> + 'a> {
+    let first_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphabetic() || c.1 == '_');
+    let other_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphanumeric() || c.1 == '_');
     parser_lib::fmap(
         |(_, s)| s,
         parser_lib::string::parsed_string(parser_lib::seq(first_sym, parser_lib::many(other_sym))),
@@ -212,44 +245,73 @@ fn identifier_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<
 }
 
 fn token_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, lua_lexemes::Token<'b>> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::Token<'b>)> + 'a> {
     parser_lib::choices(vec![
-        parser_lib::fmap(lua_lexemes::Token::Keyword, keyword_lexer()),
-        parser_lib::fmap(lua_lexemes::Token::Identifier, identifier_lexer()),
-        parser_lib::fmap(lua_lexemes::Token::OtherToken, other_token_lexer()),
         parser_lib::fmap(
-            |x| lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(x)),
+            |(loc, t)| (loc, lua_lexemes::Token::Keyword(t)),
+            keyword_lexer(),
+        ),
+        parser_lib::fmap(
+            |(loc, t)| (loc, lua_lexemes::Token::Identifier(t)),
+            identifier_lexer(),
+        ),
+        parser_lib::fmap(
+            |(loc, t)| (loc, lua_lexemes::Token::OtherToken(t)),
+            other_token_lexer(),
+        ),
+        parser_lib::fmap(
+            |(loc, t)| {
+                (
+                    loc,
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)),
+                )
+            },
             string_literal_lexer(),
         ),
         parser_lib::fmap(
-            |x| lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(x)),
+            |(loc, t)| {
+                (
+                    loc,
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)),
+                )
+            },
             number_literal_lexer(),
         ),
     ])
 }
 
-fn comment_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, ()> + 'a> {
+fn comment_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>, ()> + 'a> {
     seqs_![
         parser_lib::string::string_parser("--"),
         parser_lib::choice(
             parser_lib::fmap(|_| (), long_brackets_lexer()),
             parser_lib::fmap(
                 |_| (),
-                parser_lib::many(parser_lib::satisfies(|c: &char| *c != '\n'))
+                parser_lib::many(parser_lib::satisfies(|c: &(_, char)| c.1 != '\n'))
             )
         )
     ]
 }
 
-fn whitespace_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, ()> + 'a> {
+fn whitespace_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>, ()> + 'a> {
     parser_lib::fmap(
         |_| (),
-        parser_lib::many1(parser_lib::satisfies(|c: &char| c.is_ascii_whitespace())),
+        parser_lib::many1(parser_lib::satisfies(|c: &(_, char)| {
+            c.1.is_ascii_whitespace()
+        })),
+    )
+}
+
+fn located_token_lexer<'a, 'b: 'a>(
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, lua_lexemes::LocatedToken<'b>> + 'a> {
+    parser_lib::fmap(
+        |(location, token)| lua_lexemes::LocatedToken { location, token },
+        token_lexer(),
     )
 }
 
 fn tokens_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<std::str::Chars<'b>, Vec<lua_lexemes::Token<'b>>> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, Vec<lua_lexemes::LocatedToken<'b>>> + 'a> {
     let skip_lexer = || {
         parser_lib::fmap(
             |_| (),
@@ -259,7 +321,7 @@ fn tokens_lexer<'a, 'b: 'a>(
     parser_lib::seq1(
         parser_lib::seq2(
             skip_lexer(),
-            parser_lib::many(parser_lib::seq1(token_lexer(), skip_lexer())),
+            parser_lib::many(parser_lib::seq1(located_token_lexer(), skip_lexer())),
         ),
         parser_lib::eof(),
     )

@@ -2,204 +2,358 @@
 
 use super::*;
 
-fn name<'a>(n: &'a str) -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Identifier(n)
+fn loc(line: usize, column: usize) -> lua_lexemes::Location {
+    lua_lexemes::Location { line, column }
 }
 
-fn number<'a>(n: f64) -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n))
+fn name<'a>(n: &'a str) -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Identifier(n),
+        location: loc(1, 1),
+    }
 }
 
-fn string<'a>(s: String) -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s))
+fn number<'a>(n: f64) -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n)),
+        location: loc(1, 1),
+    }
 }
 
-fn period<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Period)
+fn string<'a>(s: String) -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)),
+        location: loc(1, 1),
+    }
 }
 
-fn colon<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Colon)
+fn period<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Period),
+        location: loc(1, 1),
+    }
 }
 
-fn comma<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Comma)
+fn colon<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Colon),
+        location: loc(1, 1),
+    }
 }
 
-fn semi<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Semi)
+fn comma<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Comma),
+        location: loc(1, 1),
+    }
 }
 
-fn varargs<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Vararg)
+fn semi<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Semi),
+        location: loc(1, 1),
+    }
 }
 
-fn l_bracket<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LBracket)
+fn varargs<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Vararg),
+        location: loc(1, 1),
+    }
 }
 
-fn r_bracket<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RBracket)
+fn l_bracket<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LBracket),
+        location: loc(1, 1),
+    }
 }
 
-fn l_brace<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LBrace)
+fn r_bracket<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RBracket),
+        location: loc(1, 1),
+    }
 }
 
-fn r_brace<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RBrace)
+fn l_brace<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LBrace),
+        location: loc(1, 1),
+    }
 }
 
-fn l_paren<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LParen)
+fn r_brace<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RBrace),
+        location: loc(1, 1),
+    }
 }
 
-fn r_paren<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RParen)
+fn l_paren<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::LParen),
+        location: loc(1, 1),
+    }
 }
 
-fn assign<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Assign)
+fn r_paren<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::RParen),
+        location: loc(1, 1),
+    }
 }
 
-fn plus<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Add)
+fn assign<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Assign),
+        location: loc(1, 1),
+    }
 }
 
-fn times<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Mul)
+fn plus<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Add),
+        location: loc(1, 1),
+    }
 }
 
-fn pow<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Pow)
+fn times<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Mul),
+        location: loc(1, 1),
+    }
 }
 
-fn minus<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::SubOrUnm)
+fn pow<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Pow),
+        location: loc(1, 1),
+    }
 }
 
-fn lt<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Lt)
+fn minus<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::SubOrUnm),
+        location: loc(1, 1),
+    }
 }
 
-fn le<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Le)
+fn lt<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Lt),
+        location: loc(1, 1),
+    }
 }
 
-fn gt<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Gt)
+fn le<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Le),
+        location: loc(1, 1),
+    }
 }
 
-fn ge<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Ge)
+fn gt<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Gt),
+        location: loc(1, 1),
+    }
 }
 
-fn eq<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Eq)
+fn ge<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Ge),
+        location: loc(1, 1),
+    }
 }
 
-fn neq<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Neq)
+fn eq<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Eq),
+        location: loc(1, 1),
+    }
 }
 
-fn concat<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Concat)
+fn neq<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Neq),
+        location: loc(1, 1),
+    }
 }
 
-fn divide<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Div)
+fn concat<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Concat),
+        location: loc(1, 1),
+    }
 }
 
-fn modulo<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Mod)
+fn divide<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Div),
+        location: loc(1, 1),
+    }
 }
 
-fn len<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Len)
+fn modulo<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Mod),
+        location: loc(1, 1),
+    }
 }
 
-fn k_nil<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Nil)
+fn len<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Len),
+        location: loc(1, 1),
+    }
 }
 
-fn k_true<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::True)
+fn k_nil<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Nil),
+        location: loc(1, 1),
+    }
 }
 
-fn k_false<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::False)
+fn k_true<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::True),
+        location: loc(1, 1),
+    }
 }
 
-fn k_break<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Break)
+fn k_false<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::False),
+        location: loc(1, 1),
+    }
 }
 
-fn k_return<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Return)
+fn k_break<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Break),
+        location: loc(1, 1),
+    }
 }
 
-fn k_do<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Do)
+fn k_return<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Return),
+        location: loc(1, 1),
+    }
 }
 
-fn k_end<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::End)
+fn k_do<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Do),
+        location: loc(1, 1),
+    }
 }
 
-fn k_while<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::While)
+fn k_end<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::End),
+        location: loc(1, 1),
+    }
 }
 
-fn k_repeat<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Repeat)
+fn k_while<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::While),
+        location: loc(1, 1),
+    }
 }
 
-fn k_until<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Until)
+fn k_repeat<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Repeat),
+        location: loc(1, 1),
+    }
 }
 
-fn k_for<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::For)
+fn k_until<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Until),
+        location: loc(1, 1),
+    }
 }
 
-fn k_in<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::In)
+fn k_for<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::For),
+        location: loc(1, 1),
+    }
 }
 
-fn k_function<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Function)
+fn k_in<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::In),
+        location: loc(1, 1),
+    }
 }
 
-fn k_local<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Local)
+fn k_function<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Function),
+        location: loc(1, 1),
+    }
 }
 
-fn k_if<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::If)
+fn k_local<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Local),
+        location: loc(1, 1),
+    }
 }
 
-fn k_then<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Then)
+fn k_if<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::If),
+        location: loc(1, 1),
+    }
 }
 
-fn k_elseif<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Elseif)
+fn k_then<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Then),
+        location: loc(1, 1),
+    }
 }
 
-fn k_else<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Else)
+fn k_elseif<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Elseif),
+        location: loc(1, 1),
+    }
 }
 
-fn k_and<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::And)
+fn k_else<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Else),
+        location: loc(1, 1),
+    }
 }
 
-fn k_or<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Or)
+fn k_and<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::And),
+        location: loc(1, 1),
+    }
 }
 
-fn k_not<'a>() -> lua_lexemes::Token<'a> {
-    lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Not)
+fn k_or<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Or),
+        location: loc(1, 1),
+    }
+}
+
+fn k_not<'a>() -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Not),
+        location: loc(1, 1),
+    }
 }
 
 fn run_parser<'a, I: Iterator + Clone, T>(
@@ -2160,8 +2314,12 @@ mod ops_tests {
 
     #[derive(Clone, Copy)]
     enum Op<'a> {
-        BinOp(lua_syntax::BinOp, Assoc, fn() -> lua_lexemes::Token<'a>),
-        UnOp(lua_syntax::UnOp, fn() -> lua_lexemes::Token<'a>),
+        BinOp(
+            lua_syntax::BinOp,
+            Assoc,
+            fn() -> lua_lexemes::LocatedToken<'a>,
+        ),
+        UnOp(lua_syntax::UnOp, fn() -> lua_lexemes::LocatedToken<'a>),
     }
 
     fn create_ops<'a>() -> Vec<Vec<Op<'a>>> {
@@ -2206,7 +2364,7 @@ mod ops_tests {
     }
 
     struct TestCase<'a> {
-        input: Vec<lua_lexemes::Token<'a>>,
+        input: Vec<lua_lexemes::LocatedToken<'a>>,
         output: lua_syntax::Exp<'a>,
     }
 

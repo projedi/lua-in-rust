@@ -74,10 +74,6 @@ pub fn satisfies<'a, T, I: Iterator<Item = T> + Clone>(
     })
 }
 
-pub fn char_parser<I: Iterator<Item = char> + Clone>(c: char) -> Box<dyn Parser<I, char>> {
-    satisfies(move |in_c| *in_c == c)
-}
-
 pub fn seq_bind<'a, I: 'a, T1: 'a, T2: 'a>(
     p1: Box<dyn Parser<I, T1> + 'a>,
     fp2: impl Fn(T1) -> Box<dyn Parser<I, T2> + 'a> + 'a,
@@ -274,7 +270,8 @@ pub fn not_parser<'a, I: Clone + 'a, T: 'a>(
     })
 }
 
-pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item = T> + Clone>(
+pub fn sequence_parser<'a, T1, T2, S: Iterator<Item = T1>, I: Iterator<Item = T2> + Clone>(
+    f: impl Fn(&T1, &T2) -> bool + 'a,
     expected_sequence: impl Fn() -> S + 'a,
 ) -> Box<dyn Parser<I, ()> + 'a> {
     Box::new(move |mut s| {
@@ -286,7 +283,7 @@ pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item
                     let actual_t = new_s.iterator.next();
                     match actual_t {
                         Some(actual_t) => {
-                            if expected_t != actual_t {
+                            if !f(&expected_t, &actual_t) {
                                 return (None, s);
                             }
                             s = new_s;

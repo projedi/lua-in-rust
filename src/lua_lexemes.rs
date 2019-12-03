@@ -143,4 +143,12 @@ pub enum Token<'a> {
     Literal(Literal),
 }
 
+pub type Location = crate::utils::located_chars::Location;
+
+#[derive(Debug, PartialEq)]
+pub struct LocatedToken<'a> {
+    pub location: Location,
+    pub token: Token<'a>,
+}
+
 pub mod parser;

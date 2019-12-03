@@ -5,7 +5,8 @@ fn run_parser<'a, T>(
     input: &'a str,
     p: impl Parser<std::str::Chars<'a>, T>,
 ) -> (Option<T>, &'a str) {
-    super::string::run_parser(input, p)
+    let (x, i) = super::run_parser(input.chars(), p);
+    (x, i.as_str())
 }
 
 #[test]
@@ -475,7 +476,7 @@ fn test_eof() {
     );
 }
 
-fn recursive_parser<'a, I: Iterator<Item = char> + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
+fn recursive_parser<'a, I: CharIterator + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
     choice(
         fmap(
             |i| i + 1,
@@ -494,7 +495,7 @@ fn test_recursive_parser() {
     assert_eq!(run_parser("1120", recursive_parser()), (None, "1120"));
 }
 
-fn mut_rec_parser1<'a, I: Iterator<Item = char> + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
+fn mut_rec_parser1<'a, I: CharIterator + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
     choice(
         fmap(
             |i| i + 1,
@@ -504,7 +505,7 @@ fn mut_rec_parser1<'a, I: Iterator<Item = char> + Clone + 'a>() -> Box<dyn Parse
     )
 }
 
-fn mut_rec_parser2<'a, I: Iterator<Item = char> + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
+fn mut_rec_parser2<'a, I: CharIterator + Clone + 'a>() -> Box<dyn Parser<I, u64> + 'a> {
     choice(
         fmap(
             |i| i + 1,
