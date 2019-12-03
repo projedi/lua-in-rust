@@ -1,7 +1,7 @@
 use crate::lua_lexemes;
 use crate::parser_lib;
 
-pub fn run_lexer<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
+pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
     match parser_lib::string::run_parser(input, tokens_lexer()) {
         (Some(result), _) => Ok(result),
         (None, _) => Err("Lexer failed".to_string()),

@@ -1,8 +1,7 @@
 extern crate lua_in_rust;
 
-use lua_in_rust::lua_lexer;
-use lua_in_rust::lua_parser;
-use lua_in_rust::lua_printer;
+use lua_in_rust::lua_lexemes;
+use lua_in_rust::lua_syntax;
 use std::fs;
 use std::path;
 
@@ -47,9 +46,9 @@ impl TestFile {
 }
 
 fn reprint(original: String) -> Result<String, String> {
-    let tokens = lua_lexer::run_lexer(&original)?;
-    let ast = lua_parser::run_parser(&tokens)?;
-    lua_printer::run_printer(&ast)
+    let tokens = lua_lexemes::parser::run_parser(&original)?;
+    let ast = lua_syntax::parser::run_parser(&tokens)?;
+    lua_syntax::printer::run_printer(&ast)
 }
 
 fn test(name: &str) -> Result<(), String> {
