@@ -13,7 +13,9 @@ pub fn parsed_string<'a, 'b: 'a, T: 'a>(
 ) -> Box<dyn Parser<std::str::Chars<'b>, (T, &'b str)> + 'a> {
     Box::new(move |s| {
         let (p_result, p_s) = p(s.clone());
-        let parsed_str = &s.iterator.as_str()[0..p_s.consumed_count - s.consumed_count];
+        let len_before = s.iterator.consumed_count();
+        let len_after = p_s.iterator.consumed_count();
+        let parsed_str = &s.iterator.into_inner().as_str()[0..len_after - len_before];
         let result = match p_result {
             Some(p_result) => Some((p_result, parsed_str)),
             None => None,

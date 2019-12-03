@@ -2,23 +2,23 @@
 // is resolved.
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::redundant_closure))]
 
+use crate::utils::enumerate::{enumerate, Enumerate};
+
 #[derive(Clone)]
 pub struct ParserState<I> {
-    iterator: I,
-    consumed_count: usize,
+    iterator: Enumerate<I>,
 }
 
 pub trait Parser<I, T>: Fn(ParserState<I>) -> (Option<T>, ParserState<I>) {}
 
 impl<I, T, F: Fn(ParserState<I>) -> (Option<T>, ParserState<I>)> Parser<I, T> for F {}
 
-pub fn run_parser<I, T>(iterator: I, p: impl Parser<I, T>) -> (Option<T>, I) {
+pub fn run_parser<I: Iterator, T>(iterator: I, p: impl Parser<I, T>) -> (Option<T>, I) {
     let s = ParserState {
-        iterator,
-        consumed_count: 0,
+        iterator: enumerate(iterator),
     };
     let (result, s) = p(s);
-    (result, s.iterator)
+    (result, s.iterator.into_inner())
 }
 
 pub fn empty_parser<I>() -> Box<dyn Parser<I, ()>> {
@@ -61,7 +61,6 @@ pub fn satisfies<'a, T, I: Iterator<Item = T> + Clone>(
     Box::new(move |s: ParserState<I>| {
         let mut out_s = s.clone();
         let c = out_s.iterator.next();
-        out_s.consumed_count += 1;
         match c {
             Some(c) => {
                 if f(&c) {
@@ -285,7 +284,6 @@ pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item
                 Some(expected_t) => {
                     let mut new_s = s.clone();
                     let actual_t = new_s.iterator.next();
-                    new_s.consumed_count += 1;
                     match actual_t {
                         Some(actual_t) => {
                             if expected_t != actual_t {
