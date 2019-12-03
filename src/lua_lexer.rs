@@ -3,8 +3,8 @@ use crate::parser_lib;
 
 pub fn run_lexer<'a>(input: &'a str) -> Result<Vec<lua_lexemes::Token<'a>>, String> {
     match parser_lib::string::run_parser(input, tokens_lexer()) {
-        Some(result) => Ok(result),
-        None => Err("Lexer failed".to_string()),
+        (Some(result), _) => Ok(result),
+        (None, _) => Err("Lexer failed".to_string()),
     }
 }
 
@@ -82,19 +82,25 @@ fn string_literal_lexer<'a, 'b: 'a>(
                 parser_lib::satisfies(move |c: &char| *c != '\\' && *c != quote),
             )
         };
-    parser_lib::seq_bind(
-        parser_lib::satisfies(|in_c: &char| *in_c == '\'' || *in_c == '"'),
-        move |opening_quote| {
-            parser_lib::seq_bind(
-                parser_lib::seq1(
-                    parser_lib::many(string_literal_char_lexer(opening_quote)),
-                    parser_lib::char_parser(opening_quote),
-                ),
-                |chars| {
-                    parser_lib::fmap(move |_| chars.iter().collect(), parser_lib::empty_parser())
-                },
-            )
-        },
+    parser_lib::map_filter(
+        |result| result,
+        parser_lib::try_parser(parser_lib::seq_bind(
+            parser_lib::satisfies(|in_c: &char| *in_c == '\'' || *in_c == '"'),
+            move |opening_quote| {
+                parser_lib::seq_bind(
+                    parser_lib::seq1(
+                        parser_lib::many(string_literal_char_lexer(opening_quote)),
+                        parser_lib::char_parser(opening_quote),
+                    ),
+                    |chars| {
+                        parser_lib::fmap(
+                            move |_| chars.iter().collect(),
+                            parser_lib::empty_parser(),
+                        )
+                    },
+                )
+            },
+        )),
     )
 }
 
@@ -183,12 +189,15 @@ fn number_literal_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<std::str::Ch
             },
         )
     };
-    parser_lib::choice(
-        parser_lib::seq2(
-            parser_lib::string::string_parser("0x"),
-            hexadecimal_parser(),
-        ),
-        decimal_parser(),
+    parser_lib::map_filter(
+        |result| result,
+        parser_lib::try_parser(parser_lib::choice(
+            parser_lib::seq2(
+                parser_lib::string::string_parser("0x"),
+                hexadecimal_parser(),
+            ),
+            decimal_parser(),
+        )),
     )
 }
 

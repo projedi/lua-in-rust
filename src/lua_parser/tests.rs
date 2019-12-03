@@ -202,11 +202,11 @@ fn k_not<'a>() -> lua_lexemes::Token<'a> {
     lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Not)
 }
 
-fn run_parser<'a, I: Iterator, T>(
+fn run_parser<'a, I: Iterator + Clone, T>(
     iterator: I,
     p: Box<dyn parser_lib::Parser<I, T> + 'a>,
 ) -> Option<T> {
-    parser_lib::run_parser(iterator, parser_lib::seq1(p, parser_lib::eof()))
+    parser_lib::run_parser(iterator, parser_lib::seq1(p, parser_lib::eof())).0
 }
 
 #[test]

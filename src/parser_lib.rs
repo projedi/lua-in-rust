@@ -8,31 +8,25 @@ pub struct ParserState<I> {
     consumed_count: usize,
 }
 
-pub trait Parser<I, T>: Fn(ParserState<I>) -> Option<(T, ParserState<I>)> {}
+pub trait Parser<I, T>: Fn(ParserState<I>) -> (Option<T>, ParserState<I>) {}
 
-impl<I, T, F: Fn(ParserState<I>) -> Option<(T, ParserState<I>)>> Parser<I, T> for F {}
+impl<I, T, F: Fn(ParserState<I>) -> (Option<T>, ParserState<I>)> Parser<I, T> for F {}
 
-fn run_parser_impl<I, T>(iterator: I, p: impl Parser<I, T>) -> Option<(T, I)> {
+pub fn run_parser<I, T>(iterator: I, p: impl Parser<I, T>) -> (Option<T>, I) {
     let s = ParserState {
         iterator,
         consumed_count: 0,
     };
-    match p(s) {
-        Some((result, s)) => Some((result, s.iterator)),
-        None => None,
-    }
-}
-
-pub fn run_parser<I, T>(iterator: I, p: impl Parser<I, T>) -> Option<T> {
-    Some(run_parser_impl(iterator, p)?.0)
+    let (result, s) = p(s);
+    (result, s.iterator)
 }
 
 pub fn empty_parser<I>() -> Box<dyn Parser<I, ()>> {
-    Box::new(|s| Some(((), s)))
+    Box::new(|s| (Some(()), s))
 }
 
 pub fn fail_parser<I, T>() -> Box<dyn Parser<I, T>> {
-    Box::new(|_| None)
+    Box::new(|s| (None, s))
 }
 
 pub fn fmap<'a, I: 'a, T1: 'a, T2: 'a>(
@@ -40,8 +34,11 @@ pub fn fmap<'a, I: 'a, T1: 'a, T2: 'a>(
     p: Box<dyn Parser<I, T1> + 'a>,
 ) -> Box<dyn Parser<I, T2> + 'a> {
     Box::new(move |s| {
-        let (x, s) = p(s)?;
-        Some((f(x), s))
+        let (x, s) = p(s);
+        match x {
+            Some(x) => (Some(f(x)), s),
+            None => (None, s),
+        }
     })
 }
 
@@ -50,28 +47,35 @@ pub fn map_filter<'a, I: 'a, T1: 'a, T2: 'a>(
     p: Box<dyn Parser<I, T1> + 'a>,
 ) -> Box<dyn Parser<I, T2> + 'a> {
     Box::new(move |s| {
-        let (x, s) = p(s)?;
-        let x = f(x)?;
-        Some((x, s))
-    })
-}
-
-pub fn satisfies<'a, T, I: Iterator<Item = T>>(
-    f: impl Fn(&T) -> bool + 'a,
-) -> Box<dyn Parser<I, T> + 'a> {
-    Box::new(move |s: ParserState<I>| {
-        let mut out_s = s;
-        let c = out_s.iterator.next()?;
-        out_s.consumed_count += 1;
-        if f(&c) {
-            Some((c, out_s))
-        } else {
-            None
+        let (x, s) = p(s);
+        match x {
+            Some(x) => (f(x), s),
+            None => (None, s),
         }
     })
 }
 
-pub fn char_parser<I: Iterator<Item = char>>(c: char) -> Box<dyn Parser<I, char>> {
+pub fn satisfies<'a, T, I: Iterator<Item = T> + Clone>(
+    f: impl Fn(&T) -> bool + 'a,
+) -> Box<dyn Parser<I, T> + 'a> {
+    Box::new(move |s: ParserState<I>| {
+        let mut out_s = s.clone();
+        let c = out_s.iterator.next();
+        out_s.consumed_count += 1;
+        match c {
+            Some(c) => {
+                if f(&c) {
+                    (Some(c), out_s)
+                } else {
+                    (None, s)
+                }
+            }
+            None => (None, s),
+        }
+    })
+}
+
+pub fn char_parser<I: Iterator<Item = char> + Clone>(c: char) -> Box<dyn Parser<I, char>> {
     satisfies(move |in_c| *in_c == c)
 }
 
@@ -80,9 +84,11 @@ pub fn seq_bind<'a, I: 'a, T1: 'a, T2: 'a>(
     fp2: impl Fn(T1) -> Box<dyn Parser<I, T2> + 'a> + 'a,
 ) -> Box<dyn Parser<I, T2> + 'a> {
     Box::new(move |s| {
-        let (p1_result, s) = p1(s)?;
-        let (p2_result, s) = fp2(p1_result)(s)?;
-        Some((p2_result, s))
+        let (p1_result, s) = p1(s);
+        match p1_result {
+            Some(p1_result) => fp2(p1_result)(s),
+            None => (None, s),
+        }
     })
 }
 
@@ -91,9 +97,17 @@ pub fn seq<'a, I: 'a, T1: 'a, T2: 'a>(
     p2: Box<dyn Parser<I, T2> + 'a>,
 ) -> Box<dyn Parser<I, (T1, T2)> + 'a> {
     Box::new(move |s| {
-        let (p1_result, s) = p1(s)?;
-        let (p2_result, s) = p2(s)?;
-        Some(((p1_result, p2_result), s))
+        let (p1_result, s) = p1(s);
+        match p1_result {
+            Some(p1_result) => {
+                let (p2_result, s) = p2(s);
+                match p2_result {
+                    Some(p2_result) => (Some((p1_result, p2_result)), s),
+                    None => (None, s),
+                }
+            }
+            None => (None, s),
+        }
     })
 }
 
@@ -102,9 +116,17 @@ pub fn seq1<'a, I: 'a, T1: 'a, T2: 'a>(
     p2: Box<dyn Parser<I, T2> + 'a>,
 ) -> Box<dyn Parser<I, T1> + 'a> {
     Box::new(move |s| {
-        let (p1_result, s) = p1(s)?;
-        let (_, s) = p2(s)?;
-        Some((p1_result, s))
+        let (p1_result, s) = p1(s);
+        match p1_result {
+            Some(p1_result) => {
+                let (p2_result, s) = p2(s);
+                match p2_result {
+                    Some(_) => (Some(p1_result), s),
+                    None => (None, s),
+                }
+            }
+            None => (None, s),
+        }
     })
 }
 
@@ -113,9 +135,17 @@ pub fn seq2<'a, I: 'a, T1: 'a, T2: 'a>(
     p2: Box<dyn Parser<I, T2> + 'a>,
 ) -> Box<dyn Parser<I, T2> + 'a> {
     Box::new(move |s| {
-        let (_, s) = p1(s)?;
-        let (p2_result, s) = p2(s)?;
-        Some((p2_result, s))
+        let (p1_result, s) = p1(s);
+        match p1_result {
+            Some(_) => {
+                let (p2_result, s) = p2(s);
+                match p2_result {
+                    Some(p2_result) => (Some(p2_result), s),
+                    None => (None, s),
+                }
+            }
+            None => (None, s),
+        }
     })
 }
 
@@ -124,9 +154,17 @@ pub fn seq_<'a, I: 'a, T1: 'a, T2: 'a>(
     p2: Box<dyn Parser<I, T2> + 'a>,
 ) -> Box<dyn Parser<I, ()> + 'a> {
     Box::new(move |s| {
-        let (_, s) = p1(s)?;
-        let (_, s) = p2(s)?;
-        Some(((), s))
+        let (p1_result, s) = p1(s);
+        match p1_result {
+            Some(_) => {
+                let (p2_result, s) = p2(s);
+                match p2_result {
+                    Some(_) => (Some(()), s),
+                    None => (None, s),
+                }
+            }
+            None => (None, s),
+        }
     })
 }
 
@@ -145,9 +183,9 @@ pub fn choice<'a, I: Clone + 'a, T: 'a>(
     p2: Box<dyn Parser<I, T> + 'a>,
 ) -> Box<dyn Parser<I, T> + 'a> {
     Box::new(move |s| {
-        let p1_result = p1(s.clone());
+        let (p1_result, p1_s) = p1(s.clone());
         match p1_result {
-            Some(_) => p1_result,
+            Some(_) => (p1_result, p1_s),
             None => p2(s),
         }
     })
@@ -170,9 +208,9 @@ pub fn many<'a, I: Clone + 'a, T: 'a>(
         let mut results: Vec<T> = Vec::new();
         let mut cur_s = s;
         loop {
-            let p_result = p(cur_s.clone());
+            let (p_result, new_s) = p(cur_s.clone());
             match p_result {
-                Some((x, new_s)) => {
+                Some(x) => {
                     results.push(x);
                     cur_s = new_s;
                 }
@@ -181,7 +219,7 @@ pub fn many<'a, I: Clone + 'a, T: 'a>(
                 }
             }
         }
-        Some((results, cur_s))
+        (Some(results), cur_s)
     })
 }
 
@@ -189,22 +227,27 @@ pub fn many1<'a, I: Clone + 'a, T: 'a>(
     p: Box<dyn Parser<I, T> + 'a>,
 ) -> Box<dyn Parser<I, Vec<T>> + 'a> {
     Box::new(move |s| {
-        let (x, s) = p(s)?;
-        let mut results: Vec<T> = vec![x];
-        let mut cur_s = s;
-        loop {
-            let p_result = p(cur_s.clone());
-            match p_result {
-                Some((x, new_s)) => {
-                    results.push(x);
-                    cur_s = new_s;
+        let (x, s) = p(s);
+        match x {
+            Some(x) => {
+                let mut results: Vec<T> = vec![x];
+                let mut cur_s = s;
+                loop {
+                    let (p_result, new_s) = p(cur_s.clone());
+                    match p_result {
+                        Some(x) => {
+                            results.push(x);
+                            cur_s = new_s;
+                        }
+                        None => {
+                            break;
+                        }
+                    }
                 }
-                None => {
-                    break;
-                }
+                (Some(results), cur_s)
             }
+            None => (None, s),
         }
-        Some((results, cur_s))
     })
 }
 
@@ -212,10 +255,10 @@ pub fn try_parser<'a, I: Clone + 'a, T: 'a>(
     p: Box<dyn Parser<I, T> + 'a>,
 ) -> Box<dyn Parser<I, Option<T>> + 'a> {
     Box::new(move |s| {
-        let p_result = p(s.clone());
+        let (p_result, p_s) = p(s.clone());
         match p_result {
-            None => Some((None, s)),
-            Some((x, s)) => Some((Some(x), s)),
+            None => (Some(None), s),
+            Some(x) => (Some(Some(x)), p_s),
         }
     })
 }
@@ -224,15 +267,15 @@ pub fn not_parser<'a, I: Clone + 'a, T: 'a>(
     p: Box<dyn Parser<I, T> + 'a>,
 ) -> Box<dyn Parser<I, ()> + 'a> {
     Box::new(move |s| {
-        let p_result = p(s.clone());
+        let (p_result, _) = p(s.clone());
         match p_result {
-            None => Some(((), s)),
-            Some(_) => None,
+            None => (Some(()), s),
+            Some(_) => (None, s),
         }
     })
 }
 
-pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item = T>>(
+pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item = T> + Clone>(
     expected_sequence: impl Fn() -> S + 'a,
 ) -> Box<dyn Parser<I, ()> + 'a> {
     Box::new(move |mut s| {
@@ -240,24 +283,36 @@ pub fn sequence_parser<'a, T: PartialEq, S: Iterator<Item = T>, I: Iterator<Item
         loop {
             match expected_iter.next() {
                 Some(expected_t) => {
-                    let actual_t = s.iterator.next()?;
-                    s.consumed_count += 1;
-                    if expected_t != actual_t {
-                        return None;
+                    let mut new_s = s.clone();
+                    let actual_t = new_s.iterator.next();
+                    new_s.consumed_count += 1;
+                    match actual_t {
+                        Some(actual_t) => {
+                            if expected_t != actual_t {
+                                return (None, s);
+                            }
+                            s = new_s;
+                        }
+                        None => {
+                            return (None, s);
+                        }
                     }
                 }
                 None => {
-                    return Some(((), s));
+                    return (Some(()), s);
                 }
             }
         }
     })
 }
 
-pub fn eof<'a, I: Iterator + 'a>() -> Box<dyn Parser<I, ()> + 'a> {
-    Box::new(move |mut s| match s.iterator.next() {
-        None => Some(((), s)),
-        Some(_) => None,
+pub fn eof<'a, I: Iterator + Clone + 'a>() -> Box<dyn Parser<I, ()> + 'a> {
+    Box::new(move |s| {
+        let mut new_s = s.clone();
+        match new_s.iterator.next() {
+            None => (Some(()), s),
+            Some(_) => (None, s),
+        }
     })
 }
 

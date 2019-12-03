@@ -6,12 +6,12 @@ pub fn run_parser<'a>(
     input: &'a [lua_lexemes::Token<'a>],
 ) -> Result<lua_syntax::Block<'a>, String> {
     match parser_lib::run_parser(input.iter(), block_parser()) {
-        Some(result) => Ok(result),
-        None => Err("Parser failed".to_string()),
+        (Some(result), _) => Ok(result),
+        (None, _) => Err("Parser failed".to_string()),
     }
 }
 
-fn keyword_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
+fn keyword_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + Clone + 'a>(
     k: lua_lexemes::Keyword,
 ) -> Box<dyn parser_lib::Parser<I, &'a lua_lexemes::Token<'a>> + 'a> {
     parser_lib::satisfies(move |in_k: &&'a lua_lexemes::Token<'a>| {
@@ -19,7 +19,7 @@ fn keyword_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
     })
 }
 
-fn other_token_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
+fn other_token_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + Clone + 'a>(
     t: lua_lexemes::OtherToken,
 ) -> Box<dyn parser_lib::Parser<I, &'a lua_lexemes::Token<'a>> + 'a> {
     parser_lib::satisfies(move |in_t: &&'a lua_lexemes::Token<'a>| {
@@ -27,7 +27,7 @@ fn other_token_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
     })
 }
 
-fn name_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
+fn name_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Name<'a>> + 'a> {
     parser_lib::fmap(
         |in_t: &'a lua_lexemes::Token<'a>| match *in_t {
@@ -41,7 +41,7 @@ fn name_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
     )
 }
 
-fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
+fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, String> + 'a> {
     parser_lib::fmap(
         |in_t: &'a lua_lexemes::Token<'a>| match in_t {
@@ -55,7 +55,7 @@ fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
     )
 }
 
-fn number_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + 'a>(
+fn number_parser<'a, I: Iterator<Item = &'a lua_lexemes::Token<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Number> + 'a> {
     parser_lib::fmap(
         |in_t: &'a lua_lexemes::Token<'a>| match *in_t {
