@@ -5,11 +5,11 @@ authors = ["Alexander Shabalin <shabalyn.a@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+encoding_rs = "0.8.20"
+encoding_rs_io = "0.1.6"
 
 [dev-dependencies]
 difference = "2.0.0"
-encoding_rs = "0.8.20"
-encoding_rs_io = "0.1.6"
 
 [profile.test]
 opt-level = 3

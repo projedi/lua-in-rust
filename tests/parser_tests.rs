@@ -2,8 +2,65 @@ extern crate lua_in_rust;
 
 use lua_in_rust::lua_lexemes;
 use lua_in_rust::lua_syntax;
+use std::fmt;
 use std::fs;
+use std::io::Read;
 use std::path;
+
+// From https://stackoverflow.com/a/57929832
+fn prefix_lines(prefix: &str, lines: &str) -> String {
+    lines
+        .lines()
+        .map(|i| [prefix, i].concat())
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+pub struct Diff(difference::Changeset);
+
+impl Diff {
+    pub fn new(left: &str, right: &str) -> Self {
+        Self(difference::Changeset::new(left, right, "\n"))
+    }
+}
+
+impl fmt::Display for Diff {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for d in &self.0.diffs {
+            match *d {
+                difference::Difference::Same(ref x) => {
+                    write!(f, "{}{}", prefix_lines(" ", x), self.0.split)?;
+                }
+                difference::Difference::Add(ref x) => {
+                    write!(f, "\x1b[92m{}\x1b[0m{}", prefix_lines("+", x), self.0.split)?;
+                }
+                difference::Difference::Rem(ref x) => {
+                    write!(f, "\x1b[91m{}\x1b[0m{}", prefix_lines("-", x), self.0.split)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+// From pretty_assertions.
+macro_rules! assert_eq {
+    ($left:expr , $right:expr) => {{
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val == *right_val) {
+                    panic!(
+                        "assertion failed: `(left == right)`\
+                         \n\
+                         \n{}\
+                         \n",
+                        Diff::new(left_val, right_val)
+                    )
+                }
+            }
+        }
+    }};
+}
 
 const SOURCE_FILES: &str = "reference/lua5.1-tests";
 const GOLDEN_FILES: &str = "tests/parser_tests/golden_files";
@@ -37,7 +94,13 @@ impl TestFile {
     }
 
     fn read_source(&self) -> String {
-        fs::read_to_string(&self.source_file).unwrap()
+        let file = fs::File::open(&self.source_file).unwrap();
+        let mut decoder = encoding_rs_io::DecodeReaderBytesBuilder::new()
+            .encoding(Some(encoding_rs::WINDOWS_1252))
+            .build(file);
+        let mut dest = String::new();
+        decoder.read_to_string(&mut dest).unwrap();
+        dest
     }
 
     fn read_golden(&self) -> String {
@@ -52,14 +115,18 @@ fn reprint(original: String) -> Result<String, String> {
 }
 
 fn test(name: &str) -> Result<(), String> {
+    let replace = std::env::args().any(|x| x == "--replace");
+
     let test_file = TestFile::from_name(name);
     let reprinted_text = reprint(test_file.read_source())?;
-    assert_eq!(
-        test_file.read_golden(),
-        reprinted_text,
-        "{}",
-        test_file.source_file.display()
-    );
+    if replace {
+        fs::write(test_file.golden_file, reprinted_text).map_err(|e| e.to_string())?;
+    } else {
+        assert_eq!(
+            test_file.read_golden().trim_end(),
+            reprinted_text.trim_end()
+        );
+    }
     Ok(())
 }
 

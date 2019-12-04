@@ -7,7 +7,10 @@ pub fn run_parser<'a>(
 ) -> Result<lua_syntax::Block<'a>, String> {
     match parser_lib::run_parser(input.iter(), block_parser()) {
         (Some(result), _) => Ok(result),
-        (None, _) => Err("Parser failed".to_string()),
+        (None, mut iter) => match iter.next() {
+            None => Err("Parser failed at EOF".to_string()),
+            Some(token) => Err(format!("Parser failed at {}", token.location)),
+        },
     }
 }
 
