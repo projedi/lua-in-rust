@@ -27,6 +27,19 @@ fn string<'a>(s: String) -> lua_lexemes::LocatedToken<'a> {
     }
 }
 
+fn raw_string<'a>(s: &'a str) -> lua_lexemes::LocatedToken<'a> {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
+            lua_lexemes::LongBrackets {
+                string: s,
+                level: 0,
+                ghost_newline: false,
+            },
+        )),
+        location: loc(1, 1),
+    }
+}
+
 fn period<'a>() -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
         token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Period),
@@ -543,6 +556,10 @@ fn test_exp_parser_literals() {
     );
     assert_eq!(
         run_parser(vec![string("abc".to_string())].iter(), exp_parser()),
+        Some(lua_syntax::Exp::String("abc".to_string()))
+    );
+    assert_eq!(
+        run_parser(vec![raw_string("abc")].iter(), exp_parser()),
         Some(lua_syntax::Exp::String("abc".to_string()))
     );
     assert_eq!(
@@ -1896,6 +1913,10 @@ fn test_args_parser() {
         run_parser(vec![string("abc".to_string())].iter(), args_parser()),
         Some(lua_syntax::Args::String("abc".to_string()))
     );
+    assert_eq!(
+        run_parser(vec![raw_string("abc")].iter(), args_parser()),
+        Some(lua_syntax::Args::String("abc".to_string()))
+    );
 }
 
 #[test]
@@ -1923,6 +1944,16 @@ fn test_functioncall_parser() {
     assert_eq!(
         run_parser(
             vec![name("abc"), string("def".to_string())].iter(),
+            functioncall_parser()
+        ),
+        Some(lua_syntax::FunctionCall::FunctionCall(
+            lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
+            lua_syntax::Args::String("def".to_string())
+        ))
+    );
+    assert_eq!(
+        run_parser(
+            vec![name("abc"), raw_string("def")].iter(),
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(

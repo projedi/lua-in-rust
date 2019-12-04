@@ -1,11 +1,34 @@
 use crate::lua_lexemes;
 use std::fmt;
 
+fn fmt_long_brackets<'a>(
+    out: &mut dyn fmt::Write,
+    token: &lua_lexemes::LongBrackets<'a>,
+) -> fmt::Result {
+    write!(out, "[")?;
+    for _ in 0..token.level {
+        write!(out, "=")?;
+    }
+    write!(out, "[")?;
+    if token.ghost_newline {
+        writeln!(out)?;
+    }
+    write!(out, "{}", token.string)?;
+    write!(out, "]")?;
+    for _ in 0..token.level {
+        write!(out, "=")?;
+    }
+    write!(out, "]")
+}
+
 fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> fmt::Result {
     match token {
         lua_lexemes::Token::Keyword(t) => write!(out, "{}", t.to_str()),
         lua_lexemes::Token::Identifier(t) => write!(out, "{}", t),
         lua_lexemes::Token::OtherToken(t) => write!(out, "{}", t.to_str()),
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)) => {
+            fmt_long_brackets(out, t)
+        }
         lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => {
             write!(out, "{:?}", t)
         }

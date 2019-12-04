@@ -84,17 +84,46 @@ fn test_string_literal_lexer() {
             ""
         )
     );
+
+    assert_eq!(
+        run_parser(
+            r#""abc \
+  def""#,
+            string_literal_lexer()
+        ),
+        (Some((loc(1, 1), "abc \n  def".to_string())), "")
+    );
 }
 
 #[test]
 fn test_long_brackets_lexer() {
     assert_eq!(
         run_parser(r#"[[abc]]"#, long_brackets_lexer()),
-        (Some((loc(1, 1), r#"abc"#)), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::LongBrackets {
+                    string: r#"abc"#,
+                    level: 0,
+                    ghost_newline: false
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(r#"[=[abc]]]=]"#, long_brackets_lexer()),
-        (Some((loc(1, 1), r#"abc]]"#)), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::LongBrackets {
+                    string: r#"abc]]"#,
+                    level: 1,
+                    ghost_newline: false
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(
@@ -106,9 +135,13 @@ def
         (
             Some((
                 loc(1, 1),
-                r#"abc
+                lua_lexemes::LongBrackets {
+                    string: r#"abc
 def
-"#
+"#,
+                    level: 1,
+                    ghost_newline: false
+                }
             )),
             ""
         )
@@ -124,20 +157,44 @@ def
         (
             Some((
                 loc(1, 1),
-                r#"abc
+                lua_lexemes::LongBrackets {
+                    string: r#"abc
 def
-"#
+"#,
+                    level: 1,
+                    ghost_newline: true
+                }
             )),
             ""
         )
     );
     assert_eq!(
         run_parser(r#"[=[ [=[ ]=] ]=]"#, long_brackets_lexer()),
-        (Some((loc(1, 1), r#" [=[ "#)), " ]=]")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::LongBrackets {
+                    string: r#" [=[ "#,
+                    level: 1,
+                    ghost_newline: false
+                }
+            )),
+            " ]=]"
+        )
     );
     assert_eq!(
         run_parser(r#"[[ \' \" \n]]"#, long_brackets_lexer()),
-        (Some((loc(1, 1), r#" \' \" \n"#)), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::LongBrackets {
+                    string: r#" \' \" \n"#,
+                    level: 0,
+                    ghost_newline: false
+                }
+            )),
+            ""
+        )
     );
 }
 
@@ -561,5 +618,63 @@ x = "';
             tokens_lexer()
         ),
         (None, "\"';\n")
+    );
+    assert_eq!(
+        run_parser(
+            r#"#!shebang line
+local
+"#,
+            tokens_lexer()
+        ),
+        (
+            Some(vec![lua_lexemes::LocatedToken {
+                token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Local),
+                location: loc(2, 1)
+            },]),
+            "",
+        )
+    );
+    assert_eq!(
+        run_parser(
+            r#"
+#!shebang line
+local
+"#,
+            tokens_lexer()
+        ),
+        (None, "!shebang line\nlocal\n",)
+    );
+    assert_eq!(
+        run_parser(
+            r#"
+x = [=[
+A string, yo
+]=]
+"#,
+            tokens_lexer()
+        ),
+        (
+            Some(vec![
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Identifier("x"),
+                    location: loc(2, 1)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Assign),
+                    location: loc(2, 3)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
+                        lua_lexemes::LongBrackets {
+                            string: "A string, yo\n",
+                            level: 1,
+                            ghost_newline: true,
+                        }
+                    )),
+                    location: loc(2, 5)
+                },
+            ]),
+            "",
+        )
     );
 }

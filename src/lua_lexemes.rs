@@ -130,7 +130,15 @@ impl OtherToken {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Literal {
+pub struct LongBrackets<'a> {
+    pub string: &'a str,
+    pub level: usize,
+    pub ghost_newline: bool,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Literal<'a> {
+    RawStringLiteral(LongBrackets<'a>),
     StringLiteral(String),
     NumberLiteral(f64),
 }
@@ -140,7 +148,7 @@ pub enum Token<'a> {
     Keyword(Keyword),
     Identifier(&'a str),
     OtherToken(OtherToken),
-    Literal(Literal),
+    Literal(Literal<'a>),
 }
 
 pub type Location = crate::utils::located_chars::Location;

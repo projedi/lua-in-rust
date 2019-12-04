@@ -28,6 +28,25 @@ fn string<'a>(s: String, line: usize, column: usize) -> lua_lexemes::LocatedToke
     }
 }
 
+fn raw_string(
+    string: &str,
+    level: usize,
+    ghost_newline: bool,
+    line: usize,
+    column: usize,
+) -> lua_lexemes::LocatedToken {
+    lua_lexemes::LocatedToken {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
+            lua_lexemes::LongBrackets {
+                string,
+                level,
+                ghost_newline,
+            },
+        )),
+        location: lua_lexemes::Location { line, column },
+    }
+}
+
 fn num<'a>(n: f64, line: usize, column: usize) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
         token: lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n)),
@@ -72,5 +91,19 @@ do a_thing 123, "a string""#
         print_tokens(&[string("With\nnew\nlines".to_string(), 2, 1),]),
         r#"
 "With\nnew\nlines""#
+    );
+    assert_eq!(
+        print_tokens(&[raw_string("With\nnew\nlines", 0, false, 2, 1),]),
+        r#"
+[[With
+new
+lines]]"#
+    );
+    assert_eq!(
+        print_tokens(&[raw_string("With\nnew\nlines", 2, true, 1, 1),]),
+        r#"[==[
+With
+new
+lines]==]"#
     );
 }

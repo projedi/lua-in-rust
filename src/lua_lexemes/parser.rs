@@ -67,6 +67,10 @@ fn string_literal_lexer<'a, 'b: 'a>(
                         parser_lib::string::char_parser('f'),
                     ),
                     parser_lib::fmap(|(loc, _)| (loc, '\n'), parser_lib::string::char_parser('n')),
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\n'),
+                        parser_lib::string::char_parser('\n'),
+                    ),
                     parser_lib::fmap(|(loc, _)| (loc, '\r'), parser_lib::string::char_parser('r')),
                     parser_lib::fmap(|(loc, _)| (loc, '\t'), parser_lib::string::char_parser('t')),
                     parser_lib::fmap(
@@ -134,9 +138,9 @@ fn string_literal_lexer<'a, 'b: 'a>(
 }
 
 fn long_brackets_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, &'b str)> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::LongBrackets<'b>)> + 'a> {
     parser_lib::seq_bind(
-        parser_lib::seq1(
+        parser_lib::seq(
             parser_lib::seq1(
                 parser_lib::seq(
                     parser_lib::fmap(|(loc, _)| loc, parser_lib::string::char_parser('[')),
@@ -146,7 +150,7 @@ fn long_brackets_lexer<'a, 'b: 'a>(
             ),
             parser_lib::try_parser(parser_lib::string::char_parser('\n')),
         ),
-        |(loc, bracket_level)| {
+        |((loc, bracket_level), ghost_newline)| {
             let bracket_level_len = bracket_level.len();
             let closing_bracket_parser = || {
                 let mut p = parser_lib::string::char_parser(']');
@@ -157,7 +161,16 @@ fn long_brackets_lexer<'a, 'b: 'a>(
                 p
             };
             parser_lib::fmap(
-                move |(_, (_, s))| (loc, s),
+                move |(_, (_, s))| {
+                    (
+                        loc,
+                        lua_lexemes::LongBrackets {
+                            string: s,
+                            level: bracket_level_len,
+                            ghost_newline: ghost_newline.is_some(),
+                        },
+                    )
+                },
                 parser_lib::seq1(
                     parser_lib::string::parsed_string(parser_lib::many(parser_lib::seq2(
                         parser_lib::not_parser(closing_bracket_parser()),
@@ -256,6 +269,15 @@ fn token_lexer<'a, 'b: 'a>(
             identifier_lexer(),
         ),
         parser_lib::fmap(
+            |(loc, t)| {
+                (
+                    loc,
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)),
+                )
+            },
+            long_brackets_lexer(),
+        ),
+        parser_lib::fmap(
             |(loc, t)| (loc, lua_lexemes::Token::OtherToken(t)),
             other_token_lexer(),
         ),
@@ -312,11 +334,20 @@ fn located_token_lexer<'a, 'b: 'a>(
 
 fn tokens_lexer<'a, 'b: 'a>(
 ) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, Vec<lua_lexemes::LocatedToken<'b>>> + 'a> {
+    let shebang_lexer = || {
+        seqs_![
+            parser_lib::string::string_parser("#!"),
+            parser_lib::fmap(
+                |_| (),
+                parser_lib::many(parser_lib::satisfies(|c: &(_, char)| c.1 != '\n'))
+            ),
+        ]
+    };
     let skip_lexer = || {
-        parser_lib::fmap(
-            |_| (),
+        seqs_![
+            parser_lib::try_parser(shebang_lexer()),
             parser_lib::many(parser_lib::choice(whitespace_lexer(), comment_lexer())),
-        )
+        ]
     };
     parser_lib::seq1(
         parser_lib::seq2(
