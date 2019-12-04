@@ -93,11 +93,29 @@ fn test_string_literal_lexer() {
     assert_eq!(run_parser(r#"'""#, string_literal_lexer()), (None, r#"'""#));
     assert_eq!(
         run_parser(r#""\'""#, string_literal_lexer()),
-        (None, r#""\'""#)
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "'".to_string(),
+                    quote: '"',
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(r#"'\"'"#, string_literal_lexer()),
-        (None, r#"'\"'"#)
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "\"".to_string(),
+                    quote: '\'',
+                }
+            )),
+            ""
+        )
     );
 
     assert_eq!(

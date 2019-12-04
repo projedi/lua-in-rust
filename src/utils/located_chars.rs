@@ -1,7 +1,15 @@
+use std::fmt;
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Location {
     pub line: usize,
     pub column: usize,
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
 }
 
 #[derive(Clone)]

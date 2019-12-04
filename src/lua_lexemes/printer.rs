@@ -26,10 +26,18 @@ fn fmt_string(out: &mut dyn fmt::Write, token: &lua_lexemes::StringLiteral) -> f
 
     for c in token.string.chars() {
         match c {
-            '\n' => write!(out, "\\n")?,
-            '\x00' => write!(out, "\\0")?,
             '\x07' => write!(out, "\\a")?,
+            '\x08' => write!(out, "\\b")?,
+            '\x0C' => write!(out, "\\f")?,
+            '\n' => write!(out, "\\n")?,
+            '\r' => write!(out, "\\r")?,
+            '\t' => write!(out, "\\t")?,
+            '\x0B' => write!(out, "\\v")?,
             '\\' => write!(out, "\\\\")?,
+            '\x00' => write!(out, "\\0")?,
+            '\x01' => write!(out, "\\1")?,
+            '\x02' => write!(out, "\\2")?,
+            '\x03' => write!(out, "\\3")?,
             _ => {
                 if c == token.quote {
                     write!(out, "\\")?
@@ -42,16 +50,28 @@ fn fmt_string(out: &mut dyn fmt::Write, token: &lua_lexemes::StringLiteral) -> f
     write!(out, "{}", token.quote)
 }
 
-fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> fmt::Result {
+type PrinterResult = Result<(), String>;
+
+fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> PrinterResult {
     match token {
-        lua_lexemes::Token::Keyword(t) => write!(out, "{}", t.to_str()),
-        lua_lexemes::Token::Identifier(t) => write!(out, "{}", t),
-        lua_lexemes::Token::OtherToken(t) => write!(out, "{}", t.to_str()),
-        lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)) => {
-            fmt_long_brackets(out, t)
+        lua_lexemes::Token::Keyword(t) => {
+            write!(out, "{}", t.to_str()).map_err(|_| "keyword".to_string())
         }
-        lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => fmt_string(out, t),
-        lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)) => write!(out, "{}", t),
+        lua_lexemes::Token::Identifier(t) => {
+            write!(out, "{}", t).map_err(|_| "identifier".to_string())
+        }
+        lua_lexemes::Token::OtherToken(t) => {
+            write!(out, "{}", t.to_str()).map_err(|_| "operator".to_string())
+        }
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)) => {
+            fmt_long_brackets(out, t).map_err(|_| "raw string".to_string())
+        }
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => {
+            fmt_string(out, t).map_err(|_| "string".to_string())
+        }
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)) => {
+            write!(out, "{}", t).map_err(|_| "number".to_string())
+        }
     }
 }
 
@@ -73,11 +93,9 @@ fn add_padding(
     out: &mut dyn fmt::Write,
     loc_from: lua_lexemes::Location,
     loc_to: lua_lexemes::Location,
-) -> fmt::Result {
-    if loc_from.line > loc_to.line {
-        Err(fmt::Error)
-    } else if loc_from.line < loc_to.line {
-        writeln!(out)?;
+) -> PrinterResult {
+    if loc_from.line < loc_to.line {
+        writeln!(out).map_err(|_| "vertical padding".to_string())?;
         add_padding(
             out,
             lua_lexemes::Location {
@@ -86,10 +104,8 @@ fn add_padding(
             },
             loc_to,
         )
-    } else if loc_from.column >= loc_to.column {
-        Err(fmt::Error)
-    } else if loc_from.column < loc_to.column - 1 {
-        write!(out, " ")?;
+    } else if loc_from.line == loc_to.line && loc_from.column < loc_to.column - 1 {
+        write!(out, " ").map_err(|_| "horizontal padding".to_string())?;
         add_padding(
             out,
             lua_lexemes::Location {
@@ -99,6 +115,7 @@ fn add_padding(
             loc_to,
         )
     } else {
+        // No extra padding needed.
         Ok(())
     }
 }
@@ -107,19 +124,19 @@ fn fmt_located_token<'a>(
     out: &mut dyn fmt::Write,
     loc: &mut lua_lexemes::Location,
     token: &lua_lexemes::LocatedToken<'a>,
-) -> fmt::Result {
+) -> PrinterResult {
     let mut token_str = String::new();
     add_padding(&mut token_str, *loc, token.location)?;
     fmt_token(&mut token_str, &token.token)?;
     modify_location(loc, &token_str);
-    write!(out, "{}", token_str)
+    write!(out, "{}", token_str).map_err(|_| "token with padding".to_string())
 }
 
 fn fmt_tokens<'a>(
     out: &mut dyn fmt::Write,
     loc: &mut lua_lexemes::Location,
     tokens: &[lua_lexemes::LocatedToken<'a>],
-) -> fmt::Result {
+) -> PrinterResult {
     for token in tokens {
         fmt_located_token(out, loc, token)?;
     }
@@ -129,10 +146,8 @@ fn fmt_tokens<'a>(
 pub fn run_printer<'a>(tokens: &[lua_lexemes::LocatedToken<'a>]) -> Result<String, String> {
     let mut result = String::new();
     let mut loc = lua_lexemes::Location { line: 1, column: 0 };
-    match fmt_tokens(&mut result, &mut loc, tokens) {
-        Ok(_) => Ok(result),
-        Err(e) => Err(e.to_string()),
-    }
+    fmt_tokens(&mut result, &mut loc, tokens)?;
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use crate::utils::located_chars::{make_located, LocatedChars, Location};
 pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::LocatedToken<'a>>, String> {
     match parser_lib::run_parser(make_located(input), tokens_lexer()) {
         (Some(result), _) => Ok(result),
-        (None, _) => Err("Lexer failed".to_string()),
+        (None, iter) => Err(format!("Lexer failed at {}", iter.current_location())),
     }
 }
 
@@ -81,17 +81,11 @@ fn string_literal_lexer<'a, 'b: 'a>(
                         |(loc, _)| (loc, '\\'),
                         parser_lib::string::char_parser('\\'),
                     ),
-                    if quote == '\'' {
-                        parser_lib::fmap(
-                            |(loc, _)| (loc, '\''),
-                            parser_lib::string::char_parser('\''),
-                        )
-                    } else {
-                        parser_lib::fmap(
-                            |(loc, _)| (loc, '"'),
-                            parser_lib::string::char_parser('"'),
-                        )
-                    },
+                    parser_lib::fmap(
+                        |(loc, _)| (loc, '\''),
+                        parser_lib::string::char_parser('\''),
+                    ),
+                    parser_lib::fmap(|(loc, _)| (loc, '"'), parser_lib::string::char_parser('"')),
                     parser_lib::seq_bind(
                         parser_lib::string::parsed_string(parser_lib::seq_(
                             parser_lib::satisfies(|c: &(_, char)| c.1.is_ascii_digit()),
