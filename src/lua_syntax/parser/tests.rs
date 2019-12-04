@@ -22,7 +22,12 @@ fn number<'a>(n: f64) -> lua_lexemes::LocatedToken<'a> {
 
 fn string<'a>(s: String) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
-        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)),
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+            lua_lexemes::StringLiteral {
+                string: s,
+                quote: '"',
+            },
+        )),
         location: loc(1, 1),
     }
 }

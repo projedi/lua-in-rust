@@ -21,6 +21,27 @@ fn fmt_long_brackets<'a>(
     write!(out, "]")
 }
 
+fn fmt_string(out: &mut dyn fmt::Write, token: &lua_lexemes::StringLiteral) -> fmt::Result {
+    write!(out, "{}", token.quote)?;
+
+    for c in token.string.chars() {
+        match c {
+            '\n' => write!(out, "\\n")?,
+            '\x00' => write!(out, "\\0")?,
+            '\x07' => write!(out, "\\a")?,
+            '\\' => write!(out, "\\\\")?,
+            _ => {
+                if c == token.quote {
+                    write!(out, "\\")?
+                }
+                write!(out, "{}", c)?
+            }
+        }
+    }
+
+    write!(out, "{}", token.quote)
+}
+
 fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> fmt::Result {
     match token {
         lua_lexemes::Token::Keyword(t) => write!(out, "{}", t.to_str()),
@@ -29,9 +50,7 @@ fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> fm
         lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)) => {
             fmt_long_brackets(out, t)
         }
-        lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => {
-            write!(out, "{:?}", t)
-        }
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => fmt_string(out, t),
         lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)) => write!(out, "{}", t),
     }
 }

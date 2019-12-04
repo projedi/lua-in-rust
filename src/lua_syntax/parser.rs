@@ -48,7 +48,9 @@ fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clo
     parser_lib::choice(
         parser_lib::fmap(
             |in_t: &'a lua_lexemes::LocatedToken<'a>| match &in_t.token {
-                lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => s.clone(),
+                lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => {
+                    s.string.clone()
+                }
                 _ => panic!("Impossible"),
             },
             parser_lib::satisfies(

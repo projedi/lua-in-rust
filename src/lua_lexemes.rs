@@ -137,9 +137,15 @@ pub struct LongBrackets<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct StringLiteral {
+    pub string: String,
+    pub quote: char,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Literal<'a> {
     RawStringLiteral(LongBrackets<'a>),
-    StringLiteral(String),
+    StringLiteral(StringLiteral),
     NumberLiteral(f64),
 }
 

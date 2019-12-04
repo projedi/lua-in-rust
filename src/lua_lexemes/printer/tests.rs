@@ -21,9 +21,16 @@ fn name(s: &str, line: usize, column: usize) -> lua_lexemes::LocatedToken {
     }
 }
 
-fn string<'a>(s: String, line: usize, column: usize) -> lua_lexemes::LocatedToken<'a> {
+fn string<'a>(
+    string: String,
+    quote: char,
+    line: usize,
+    column: usize,
+) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
-        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)),
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+            lua_lexemes::StringLiteral { string, quote },
+        )),
         location: lua_lexemes::Location { line, column },
     }
 }
@@ -82,15 +89,25 @@ do
             name("a_thing", 2, 4),
             num(123.0, 2, 12),
             comma(2, 15),
-            string("a string".to_string(), 2, 17),
+            string("a string".to_string(), '"', 2, 17),
         ]),
         r#"
 do a_thing 123, "a string""#
     );
     assert_eq!(
-        print_tokens(&[string("With\nnew\nlines".to_string(), 2, 1),]),
+        print_tokens(&[string("With\nnew\nlines".to_string(), '"', 2, 1),]),
         r#"
 "With\nnew\nlines""#
+    );
+    assert_eq!(
+        print_tokens(&[string("With \" ' \u{7} \u{0} \\ ".to_string(), '"', 2, 1),]),
+        r#"
+"With \" ' \a \0 \\ ""#
+    );
+    assert_eq!(
+        print_tokens(&[string("With \" ' \u{7} \u{0} \\ ".to_string(), '\'', 2, 1),]),
+        r#"
+'With " \' \a \0 \\ '"#
     );
     assert_eq!(
         print_tokens(&[raw_string("With\nnew\nlines", 0, false, 2, 1),]),

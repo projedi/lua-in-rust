@@ -39,19 +39,55 @@ fn test_other_token_lexer() {
 fn test_string_literal_lexer() {
     assert_eq!(
         run_parser(r#""""#, string_literal_lexer()),
-        (Some((loc(1, 1), "".to_string())), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "".to_string(),
+                    quote: '"'
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(r#""\"'""#, string_literal_lexer()),
-        (Some((loc(1, 1), "\"'".to_string())), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "\"'".to_string(),
+                    quote: '"'
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(r#"''"#, string_literal_lexer()),
-        (Some((loc(1, 1), "".to_string())), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "".to_string(),
+                    quote: '\''
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(
         run_parser(r#"'\'"'"#, string_literal_lexer()),
-        (Some((loc(1, 1), "'\"".to_string())), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "'\"".to_string(),
+                    quote: '\''
+                }
+            )),
+            ""
+        )
     );
     assert_eq!(run_parser(r#""'"#, string_literal_lexer()), (None, r#""'"#));
     assert_eq!(run_parser(r#"'""#, string_literal_lexer()), (None, r#"'""#));
@@ -70,7 +106,13 @@ fn test_string_literal_lexer() {
             string_literal_lexer()
         ),
         (
-            Some((loc(1, 1), "a bc\" \n \x00 \x0a \x7f \x010".to_string())),
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "a bc\" \n \x00 \x0a \x7f \x010".to_string(),
+                    quote: '"'
+                }
+            )),
             ""
         )
     );
@@ -80,7 +122,13 @@ fn test_string_literal_lexer() {
             string_literal_lexer()
         ),
         (
-            Some((loc(1, 1), "a bc' \n \x00 \x0a \x7f \x010".to_string())),
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "a bc' \n \x00 \x0a \x7f \x010".to_string(),
+                    quote: '\''
+                }
+            )),
             ""
         )
     );
@@ -91,7 +139,16 @@ fn test_string_literal_lexer() {
   def""#,
             string_literal_lexer()
         ),
-        (Some((loc(1, 1), "abc \n  def".to_string())), "")
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::StringLiteral {
+                    string: "abc \n  def".to_string(),
+                    quote: '"'
+                }
+            )),
+            ""
+        )
     );
 }
 
@@ -557,7 +614,10 @@ print(x);
                 },
                 lua_lexemes::LocatedToken {
                     token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
-                        "a string".to_string()
+                        lua_lexemes::StringLiteral {
+                            string: "a string".to_string(),
+                            quote: '\'',
+                        }
                     )),
                     location: loc(6, 12)
                 },

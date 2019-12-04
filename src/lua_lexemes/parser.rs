@@ -46,7 +46,7 @@ fn other_token_lexer<'a, 'b: 'a>(
 }
 
 fn string_literal_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, String)> + 'a> {
+) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::StringLiteral)> + 'a> {
     let string_literal_char_lexer = |quote: char| -> Box<
         dyn parser_lib::Parser<LocatedChars<'b>, (Location, char)> + 'a,
     > {
@@ -127,7 +127,15 @@ fn string_literal_lexer<'a, 'b: 'a>(
                     ),
                     move |chars| {
                         parser_lib::fmap(
-                            move |_| (loc, chars.iter().map(|(_, c)| c).collect()),
+                            move |_| {
+                                (
+                                    loc,
+                                    lua_lexemes::StringLiteral {
+                                        string: chars.iter().map(|(_, c)| c).collect(),
+                                        quote: opening_quote,
+                                    },
+                                )
+                            },
                             parser_lib::empty_parser(),
                         )
                     },
