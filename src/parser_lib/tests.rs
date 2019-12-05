@@ -109,6 +109,20 @@ fn test_satisfies() {
 }
 
 #[test]
+fn test_map_satisfies() {
+    let f = |c: char| -> Option<u32> {
+        if c.is_whitespace() {
+            Some(0)
+        } else {
+            None
+        }
+    };
+    assert_eq!(run_parser("", map_satisfies(f)), (None, ""));
+    assert_eq!(run_parser("abc", map_satisfies(f)), (None, "abc"));
+    assert_eq!(run_parser("  abc", map_satisfies(f)), (Some(0), " abc"));
+}
+
+#[test]
 fn test_char_parser() {
     assert_eq!(run_parser("", char_parser('a')), (None, ""));
     assert_eq!(run_parser("bca", char_parser('a')), (None, "bca"));
@@ -383,6 +397,212 @@ fn test_many1() {
     );
     assert_eq!(
         run_parser("abc def", many1(satisfies(|c: &char| c.is_alphanumeric()))),
+        (Some(vec!['a', 'b', 'c']), " def")
+    );
+}
+
+#[test]
+fn test_separated() {
+    assert_eq!(
+        run_parser(
+            "",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (None, "")
+    );
+    assert_eq!(
+        run_parser(
+            "abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a']), "bc")
+    );
+    assert_eq!(
+        run_parser(
+            "a,bc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a', 'b']), "c")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), "")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c,",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), ",")
+    );
+    assert_eq!(
+        run_parser(
+            ",abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (None, ",abc")
+    );
+    assert_eq!(
+        run_parser(
+            " abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (None, " abc")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c def",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), " def")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c, def",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                false
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), ", def")
+    );
+}
+
+#[test]
+fn test_separated_hanging() {
+    assert_eq!(
+        run_parser(
+            "",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (None, "")
+    );
+    assert_eq!(
+        run_parser(
+            "abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (Some(vec!['a']), "bc")
+    );
+    assert_eq!(
+        run_parser(
+            "a,bc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (Some(vec!['a', 'b']), "c")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), "")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c,",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), "")
+    );
+    assert_eq!(
+        run_parser(
+            ",abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (None, ",abc")
+    );
+    assert_eq!(
+        run_parser(
+            " abc",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (None, " abc")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c def",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
+        (Some(vec!['a', 'b', 'c']), " def")
+    );
+    assert_eq!(
+        run_parser(
+            "a,b,c, def",
+            separated(
+                satisfies(|c: &char| c.is_alphanumeric()),
+                char_parser(','),
+                true
+            )
+        ),
         (Some(vec!['a', 'b', 'c']), " def")
     );
 }

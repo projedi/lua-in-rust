@@ -33,68 +33,33 @@ fn other_token_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> 
 
 fn name_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Name<'a>> + 'a> {
-    parser_lib::fmap(
-        |in_t: &'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-            lua_lexemes::Token::Identifier(i) => i,
-            _ => panic!("Impossible"),
-        },
-        parser_lib::satisfies(
-            |in_t: &&'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-                lua_lexemes::Token::Identifier(_) => true,
-                _ => false,
-            },
-        ),
-    )
+    parser_lib::map_satisfies(|in_t: &'a lua_lexemes::LocatedToken<'a>| match in_t.token {
+        lua_lexemes::Token::Identifier(i) => Some(i),
+        _ => None,
+    })
 }
 
 fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, String> + 'a> {
-    parser_lib::choice(
-        parser_lib::fmap(
-            |in_t: &'a lua_lexemes::LocatedToken<'a>| match &in_t.token {
-                lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => {
-                    s.string.clone()
-                }
-                _ => panic!("Impossible"),
-            },
-            parser_lib::satisfies(
-                |in_t: &&'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-                    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(_)) => true,
-                    _ => false,
-                },
-            ),
-        ),
-        parser_lib::fmap(
-            |in_t: &'a lua_lexemes::LocatedToken<'a>| match &in_t.token {
-                lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(s)) => {
-                    String::from(s.string)
-                }
-                _ => panic!("Impossible"),
-            },
-            parser_lib::satisfies(
-                |in_t: &&'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-                    lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(_)) => true,
-                    _ => false,
-                },
-            ),
-        ),
+    parser_lib::map_satisfies(
+        |in_t: &'a lua_lexemes::LocatedToken<'a>| match &in_t.token {
+            lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => {
+                Some(s.string.clone())
+            }
+            lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(s)) => {
+                Some(String::from(s.string))
+            }
+            _ => None,
+        },
     )
 }
 
 fn number_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Number> + 'a> {
-    parser_lib::fmap(
-        |in_t: &'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-            lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n)) => n,
-            _ => panic!("Impossible"),
-        },
-        parser_lib::satisfies(
-            |in_t: &&'a lua_lexemes::LocatedToken<'a>| match in_t.token {
-                lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(_)) => true,
-                _ => false,
-            },
-        ),
-    )
+    parser_lib::map_satisfies(|in_t: &'a lua_lexemes::LocatedToken<'a>| match in_t.token {
+        lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n)) => Some(n),
+        _ => None,
+    })
 }
 
 fn block_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
@@ -117,17 +82,6 @@ fn block_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clon
 fn stat_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Stat<'a>> + 'a> {
     parser_lib::choices(vec![
-        parser_lib::fmap(
-            |(vl, el)| lua_syntax::Stat::Assign(vl, el),
-            parser_lib::seq(
-                varlist_parser(),
-                parser_lib::seq2(
-                    other_token_parser(lua_lexemes::OtherToken::Assign),
-                    explist_parser(),
-                ),
-            ),
-        ),
-        parser_lib::fmap(lua_syntax::Stat::FunctionCall, functioncall_parser()),
         parser_lib::fmap(
             lua_syntax::Stat::Block,
             parser_lib::seq2(
@@ -266,6 +220,17 @@ fn stat_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
                 ),
             ),
         ),
+        parser_lib::fmap(
+            |(vl, el)| lua_syntax::Stat::Assign(vl, el),
+            parser_lib::seq(
+                varlist_parser(),
+                parser_lib::seq2(
+                    other_token_parser(lua_lexemes::OtherToken::Assign),
+                    explist_parser(),
+                ),
+            ),
+        ),
+        parser_lib::fmap(lua_syntax::Stat::FunctionCall, functioncall_parser()),
     ])
 }
 
@@ -308,19 +273,10 @@ fn funcname_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + C
 
 fn varlist_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::NonEmptyVec<lua_syntax::Var<'a>>> + 'a> {
-    parser_lib::fmap(
-        |(v, mut vs)| {
-            let mut result = vec![v];
-            result.append(&mut vs);
-            result
-        },
-        parser_lib::seq(
-            var_parser(),
-            parser_lib::many(parser_lib::seq2(
-                other_token_parser(lua_lexemes::OtherToken::Comma),
-                var_parser(),
-            )),
-        ),
+    parser_lib::separated(
+        var_parser(),
+        other_token_parser(lua_lexemes::OtherToken::Comma),
+        false,
     )
 }
 
@@ -337,36 +293,19 @@ fn var_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone 
 
 fn namelist_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::NonEmptyVec<lua_syntax::Name<'a>>> + 'a> {
-    parser_lib::fmap(
-        |(n, mut ns)| {
-            let mut result = vec![n];
-            result.append(&mut ns);
-            result
-        },
-        parser_lib::seq(
-            name_parser(),
-            parser_lib::many(parser_lib::seq2(
-                other_token_parser(lua_lexemes::OtherToken::Comma),
-                name_parser(),
-            )),
-        ),
+    parser_lib::separated(
+        name_parser(),
+        other_token_parser(lua_lexemes::OtherToken::Comma),
+        false,
     )
 }
 
 fn explist_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::NonEmptyVec<lua_syntax::Exp<'a>>> + 'a> {
-    parser_lib::fmap(
-        |(mut es, e)| {
-            es.push(e);
-            es
-        },
-        parser_lib::seq(
-            parser_lib::many(parser_lib::seq1(
-                exp_parser(),
-                other_token_parser(lua_lexemes::OtherToken::Comma),
-            )),
-            exp_parser(),
-        ),
+    parser_lib::separated(
+        exp_parser(),
+        other_token_parser(lua_lexemes::OtherToken::Comma),
+        false,
     )
 }
 
@@ -393,6 +332,7 @@ fn exp0_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
                 |_| lua_syntax::Exp::VarArgs,
                 other_token_parser(lua_lexemes::OtherToken::Vararg),
             ),
+            parser_lib::fmap(lua_syntax::Exp::TableCtor, tableconstructor_parser()),
             parser_lib::fmap(
                 |x| lua_syntax::Exp::Function(Box::new(x)),
                 parser_lib::trace(
@@ -401,7 +341,6 @@ fn exp0_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
                 ),
             ),
             parser_lib::fmap(lua_syntax::Exp::PrefixExp, prefixexp_parser()),
-            parser_lib::fmap(lua_syntax::Exp::TableCtor, tableconstructor_parser()),
         ]),
     )
 }
@@ -836,6 +775,7 @@ fn functioncall_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>>
 fn args_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::Args<'a>> + 'a> {
     parser_lib::choices(vec![
+        parser_lib::fmap(lua_syntax::Args::String, string_parser()),
         parser_lib::fmap(
             lua_syntax::Args::Args,
             parser_lib::seq2(
@@ -847,7 +787,6 @@ fn args_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
             ),
         ),
         parser_lib::fmap(lua_syntax::Args::TableCtor, tableconstructor_parser()),
-        parser_lib::fmap(lua_syntax::Args::String, string_parser()),
     ])
 }
 
@@ -919,20 +858,7 @@ fn fieldlist_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + 
 ) -> Box<dyn parser_lib::Parser<I, lua_syntax::NonEmptyVec<lua_syntax::Field<'a>>> + 'a> {
     parser_lib::trace(
         "fieldlist_parser",
-        parser_lib::fmap(
-            |(n, mut ns)| {
-                let mut result = vec![n];
-                result.append(&mut ns);
-                result
-            },
-            parser_lib::seq1(
-                parser_lib::seq(
-                    field_parser(),
-                    parser_lib::many(parser_lib::seq2(fieldsep_parser(), field_parser())),
-                ),
-                parser_lib::try_parser(fieldsep_parser()),
-            ),
-        ),
+        parser_lib::separated(field_parser(), fieldsep_parser(), true),
     )
 }
 

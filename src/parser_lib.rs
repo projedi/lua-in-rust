@@ -75,6 +75,22 @@ pub fn satisfies<'a, T, I: Iterator<Item = T> + Clone>(
     })
 }
 
+pub fn map_satisfies<'a, T1, T2, I: Iterator<Item = T1> + Clone>(
+    f: impl Fn(T1) -> Option<T2> + 'a,
+) -> Box<dyn Parser<I, T2> + 'a> {
+    Box::new(move |s: ParserState<I>| {
+        let mut out_s = s.clone();
+        let c = out_s.iterator.next();
+        match c {
+            Some(c) => match f(c) {
+                Some(c) => (Some(c), out_s),
+                None => (None, s),
+            },
+            None => (None, s),
+        }
+    })
+}
+
 pub fn seq_bind<'a, I: 'a, T1: 'a, T2: 'a>(
     p1: Box<dyn Parser<I, T1> + 'a>,
     fp2: impl Fn(T1) -> Box<dyn Parser<I, T2> + 'a> + 'a,
@@ -237,6 +253,47 @@ pub fn many1<'a, I: Clone + 'a, T: 'a>(
                         }
                         None => {
                             break;
+                        }
+                    }
+                }
+                (Some(results), cur_s)
+            }
+            None => (None, s),
+        }
+    })
+}
+
+pub fn separated<'a, I: Clone + 'a, T1: 'a, T2: 'a>(
+    p: Box<dyn Parser<I, T1> + 'a>,
+    sep_p: Box<dyn Parser<I, T2> + 'a>,
+    allow_hanging: bool,
+) -> Box<dyn Parser<I, Vec<T1>> + 'a> {
+    Box::new(move |s| {
+        let (x, s) = p(s);
+        match x {
+            Some(x) => {
+                let mut results: Vec<T1> = vec![x];
+                let mut cur_s = s;
+                loop {
+                    let (sep_result, new_s) = sep_p(cur_s.clone());
+                    match sep_result {
+                        None => {
+                            break;
+                        }
+                        Some(_) => {
+                            if allow_hanging {
+                                cur_s = new_s.clone();
+                            }
+                            let (p_result, new_s) = p(new_s);
+                            match p_result {
+                                Some(x) => {
+                                    results.push(x);
+                                    cur_s = new_s;
+                                }
+                                None => {
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
