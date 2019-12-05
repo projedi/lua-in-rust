@@ -14,6 +14,7 @@ pub trait Parser<I, T>: Fn(ParserState<I>) -> (Option<T>, ParserState<I>) {}
 impl<I, T, F: Fn(ParserState<I>) -> (Option<T>, ParserState<I>)> Parser<I, T> for F {}
 
 pub fn run_parser<I: Iterator, T>(iterator: I, p: impl Parser<I, T>) -> (Option<T>, I) {
+    trace_scoped!("parser_lib run_parser");
     let s = ParserState {
         iterator: enumerate(iterator),
     };
@@ -315,6 +316,16 @@ pub fn allow_recursion<'a, I, T>(
     pf: impl Fn() -> Box<dyn Parser<I, T> + 'a> + Clone + 'a,
 ) -> Box<dyn Parser<I, T> + 'a> {
     Box::new(move |s| pf()(s))
+}
+
+pub fn trace<'a, 'b: 'a, I: 'a, T: 'a>(
+    name: &'b str,
+    p: Box<dyn Parser<I, T> + 'a>,
+) -> Box<dyn Parser<I, T> + 'a> {
+    Box::new(move |s| {
+        trace_scoped!(name);
+        p(s)
+    })
 }
 
 pub mod string;

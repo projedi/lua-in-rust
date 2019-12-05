@@ -24,5 +24,7 @@ fn print_source(name: String) -> Result<(), String> {
 }
 
 fn main() {
+    lua_in_rust::start_tracing();
     print_source(std::env::args().nth(1).unwrap()).unwrap();
+    lua_in_rust::stop_tracing();
 }

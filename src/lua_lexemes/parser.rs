@@ -3,6 +3,7 @@ use crate::parser_lib;
 use crate::utils::located_chars::{make_located, LocatedChars, Location};
 
 pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::LocatedToken<'a>>, String> {
+    trace_scoped!("lua_lexer run_parser");
     match parser_lib::run_parser(make_located(input), tokens_lexer()) {
         (Some(result), _) => Ok(result),
         (None, iter) => Err(format!("Lexer failed at {}", iter.current_location())),
