@@ -11,7 +11,7 @@ pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::LocatedToken<'a
 }
 
 fn keyword_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::Keyword)> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::Keyword)> {
     let mut sorted_keywords = lua_lexemes::Keyword::ITEMS;
     sorted_keywords.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
@@ -29,7 +29,7 @@ fn keyword_lexer<'a, 'b: 'a>(
 }
 
 fn other_token_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::OtherToken)> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::OtherToken)> {
     let mut sorted_tokens = lua_lexemes::OtherToken::ITEMS;
     sorted_tokens.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
     parser_lib::choices(
@@ -47,9 +47,11 @@ fn other_token_lexer<'a, 'b: 'a>(
 }
 
 fn string_literal_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::StringLiteral)> + 'a> {
-    let string_literal_char_lexer = |quote: char| -> Box<
-        dyn parser_lib::Parser<LocatedChars<'b>, (Location, char)> + 'a,
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::StringLiteral)> {
+    let string_literal_char_lexer = |quote: char| -> parser_lib::Parser<
+        'a,
+        LocatedChars<'b>,
+        (Location, char),
     > {
         parser_lib::choice(
             parser_lib::seq2(
@@ -141,7 +143,7 @@ fn string_literal_lexer<'a, 'b: 'a>(
 }
 
 fn long_brackets_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::LongBrackets<'b>)> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::LongBrackets<'b>)> {
     parser_lib::seq_bind(
         parser_lib::seq(
             parser_lib::seq1(
@@ -186,8 +188,7 @@ fn long_brackets_lexer<'a, 'b: 'a>(
     )
 }
 
-fn number_literal_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, f64)> + 'a> {
+fn number_literal_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, f64)> {
     let hexadecimal_parser = || {
         parser_lib::seq_bind(
             parser_lib::string::parsed_string(parser_lib::many1(parser_lib::satisfies(
@@ -250,8 +251,7 @@ fn number_literal_lexer<'a, 'b: 'a>(
     )
 }
 
-fn identifier_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, &'b str)> + 'a> {
+fn identifier_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, &'b str)> {
     let first_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphabetic() || c.1 == '_');
     let other_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphanumeric() || c.1 == '_');
     parser_lib::fmap(
@@ -261,7 +261,7 @@ fn identifier_lexer<'a, 'b: 'a>(
 }
 
 fn token_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (Location, lua_lexemes::Token<'b>)> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::Token<'b>)> {
     parser_lib::choices(vec![
         parser_lib::fmap(
             |(loc, t)| (loc, lua_lexemes::Token::Keyword(t)),
@@ -305,7 +305,7 @@ fn token_lexer<'a, 'b: 'a>(
     ])
 }
 
-fn comment_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>, ()> + 'a> {
+fn comment_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, ()> {
     seqs_![
         parser_lib::string::string_parser("--"),
         parser_lib::choice(
@@ -318,7 +318,7 @@ fn comment_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>, (
     ]
 }
 
-fn whitespace_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>, ()> + 'a> {
+fn whitespace_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, ()> {
     parser_lib::fmap(
         |_| (),
         parser_lib::many1(parser_lib::satisfies(|c: &(_, char)| {
@@ -328,7 +328,7 @@ fn whitespace_lexer<'a, 'b: 'a>() -> Box<dyn parser_lib::Parser<LocatedChars<'b>
 }
 
 fn located_token_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, lua_lexemes::LocatedToken<'b>> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, lua_lexemes::LocatedToken<'b>> {
     parser_lib::fmap(
         |(location, token)| lua_lexemes::LocatedToken { location, token },
         token_lexer(),
@@ -336,7 +336,7 @@ fn located_token_lexer<'a, 'b: 'a>(
 }
 
 fn tokens_lexer<'a, 'b: 'a>(
-) -> Box<dyn parser_lib::Parser<LocatedChars<'b>, Vec<lua_lexemes::LocatedToken<'b>>> + 'a> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, Vec<lua_lexemes::LocatedToken<'b>>> {
     let shebang_lexer = || {
         seqs_![
             parser_lib::string::string_parser("#!"),

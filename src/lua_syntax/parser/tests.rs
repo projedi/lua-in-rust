@@ -376,7 +376,7 @@ fn k_not<'a>() -> lua_lexemes::LocatedToken<'a> {
 
 fn run_parser<'a, I: Iterator + Clone, T>(
     iterator: I,
-    p: Box<dyn parser_lib::Parser<I, T> + 'a>,
+    p: parser_lib::Parser<'a, I, T>,
 ) -> Option<T> {
     parser_lib::run_parser(iterator, parser_lib::seq1(p, parser_lib::eof())).0
 }

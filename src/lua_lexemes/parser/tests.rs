@@ -1,9 +1,9 @@
 use super::*;
 
-fn run_parser<'a, 'b: 'a, T>(
-    input: &'b str,
-    p: Box<dyn parser_lib::Parser<LocatedChars<'b>, T> + 'a>,
-) -> (Option<T>, &'b str) {
+fn run_parser<'a, T>(
+    input: &'a str,
+    p: parser_lib::Parser<LocatedChars<'a>, T>,
+) -> (Option<T>, &'a str) {
     let (x, i) = parser_lib::run_parser(make_located(input), p);
     // TODO: No.
     (x, i.as_str())

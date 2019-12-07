@@ -41,15 +41,18 @@ impl<'a> CharIterator for LocatedChars<'a> {
     }
 }
 
-pub fn char_parser<I: CharIterator + Clone>(c: char) -> Box<dyn Parser<I, I::Item>> {
+pub fn char_parser<'a, I: CharIterator + Clone + 'a>(c: char) -> Parser<'a, I, I::Item>
+where
+    I::Item: 'a,
+{
     satisfies(move |in_c| I::matches(c, in_c))
 }
 
 pub fn parsed_string<'a, T: 'a, I: CharIterator + Clone + 'a>(
-    p: Box<dyn Parser<I, T> + 'a>,
-) -> Box<dyn Parser<I, (T, I::SequenceItem)> + 'a> {
-    Box::new(move |s| {
-        let (p_result, p_s) = p(s.clone());
+    p: Parser<'a, I, T>,
+) -> Parser<'a, I, (T, I::SequenceItem)> {
+    Parser::make(move |s: ParserState<I>| {
+        let (p_result, p_s) = p.run(s.clone());
         let len_before = s.iterator.consumed_count();
         let len_after = p_s.iterator.consumed_count();
         let parsed_str = s.iterator.into_inner().as_str(len_after - len_before);
@@ -63,7 +66,7 @@ pub fn parsed_string<'a, T: 'a, I: CharIterator + Clone + 'a>(
 
 pub fn string_parser<'a, I: CharIterator + Clone + 'a>(
     expected_str: &'a str,
-) -> Box<dyn Parser<I, I::SequenceItem> + 'a> {
+) -> Parser<'a, I, I::SequenceItem> {
     map_filter(
         |result| match result {
             Some((_, s)) => Some(s),
