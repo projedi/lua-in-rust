@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Rust sources" pattern="!file[lua-in-rust]:.idea//*&amp;&amp;!file[lua-in-rust]:reference//*&amp;&amp;!file[lua-in-rust]:tests/lexer_tests/golden_files//*&amp;&amp;!file[lua-in-rust]:tests/parser_tests/golden_files//*" />
+</component>

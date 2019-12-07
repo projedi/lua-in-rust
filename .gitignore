@@ -1,6 +1,8 @@
 *.o
 *.so
 *.a
+# TODO: Make it better.
+*.trace
 
 /reference/lua-5.1.5/src/lua
 /reference/lua-5.1.5/src/luac
