@@ -10,24 +10,6 @@ pub fn run_parser<'a>(input: &'a str) -> Result<Vec<lua_lexemes::LocatedToken<'a
     }
 }
 
-fn keyword_lexer<'a, 'b: 'a>(
-) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::Keyword)> {
-    let mut sorted_keywords = lua_lexemes::Keyword::ITEMS;
-    sorted_keywords.sort_unstable_by(|lhs, rhs| rhs.to_str().len().cmp(&lhs.to_str().len()));
-    parser_lib::choices(
-        sorted_keywords
-            .iter()
-            .map(|item| {
-                let i = *item;
-                parser_lib::fmap(
-                    move |(loc, _)| (loc, i),
-                    parser_lib::string::string_parser(item.to_str()),
-                )
-            })
-            .collect(),
-    )
-}
-
 fn other_token_lexer<'a, 'b: 'a>(
 ) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::OtherToken)> {
     let mut sorted_tokens = lua_lexemes::OtherToken::ITEMS;
@@ -251,7 +233,8 @@ fn number_literal_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>
     )
 }
 
-fn identifier_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, &'b str)> {
+fn keyword_or_identifier_lexer<'a, 'b: 'a>(
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, &'b str)> {
     let first_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphabetic() || c.1 == '_');
     let other_sym = parser_lib::satisfies(|c: &(_, char)| c.1.is_alphanumeric() || c.1 == '_');
     parser_lib::fmap(
@@ -260,16 +243,19 @@ fn identifier_lexer<'a, 'b: 'a>() -> parser_lib::Parser<'a, LocatedChars<'b>, (L
     )
 }
 
+fn get_keyword_or_identifier(s: &str) -> lua_lexemes::Token {
+    match lua_lexemes::Keyword::ITEMS.iter().find(|x| x.to_str() == s) {
+        Some(k) => lua_lexemes::Token::Keyword(*k),
+        None => lua_lexemes::Token::Identifier(s),
+    }
+}
+
 fn token_lexer<'a, 'b: 'a>(
 ) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::Token<'b>)> {
     parser_lib::choices(vec![
         parser_lib::fmap(
-            |(loc, t)| (loc, lua_lexemes::Token::Keyword(t)),
-            keyword_lexer(),
-        ),
-        parser_lib::fmap(
-            |(loc, t)| (loc, lua_lexemes::Token::Identifier(t)),
-            identifier_lexer(),
+            |(loc, t)| (loc, get_keyword_or_identifier(t)),
+            keyword_or_identifier_lexer(),
         ),
         parser_lib::fmap(
             |(loc, t)| {

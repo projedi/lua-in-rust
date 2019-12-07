@@ -14,17 +14,6 @@ fn loc(line: usize, column: usize) -> Location {
 }
 
 #[test]
-fn test_keyword_lexer() {
-    let items = lua_lexemes::Keyword::ITEMS;
-    for item in &items {
-        assert_eq!(
-            run_parser(item.to_str(), keyword_lexer()),
-            (Some((loc(1, 1), *item)), "")
-        );
-    }
-}
-
-#[test]
 fn test_other_token_lexer() {
     let items = lua_lexemes::OtherToken::ITEMS;
     for item in &items {
@@ -464,57 +453,83 @@ fn test_number_literal_lexer3() {
 }
 
 #[test]
-fn test_identifier_lexer() {
-    assert_eq!(run_parser("", identifier_lexer()), (None, ""));
-    assert_eq!(run_parser(" ", identifier_lexer()), (None, " "));
+fn test_keyword_or_identifier_lexer() {
+    assert_eq!(run_parser("", keyword_or_identifier_lexer()), (None, ""));
+    assert_eq!(run_parser(" ", keyword_or_identifier_lexer()), (None, " "));
     assert_eq!(
-        run_parser("a", identifier_lexer()),
+        run_parser("a", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "a")), "")
     );
     assert_eq!(
-        run_parser("_", identifier_lexer()),
+        run_parser("_", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "_")), "")
     );
-    assert_eq!(run_parser("1", identifier_lexer()), (None, "1"));
+    assert_eq!(run_parser("1", keyword_or_identifier_lexer()), (None, "1"));
     assert_eq!(
-        run_parser("aa", identifier_lexer()),
+        run_parser("aa", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "aa")), "")
     );
     assert_eq!(
-        run_parser("_a", identifier_lexer()),
+        run_parser("_a", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "_a")), "")
     );
-    assert_eq!(run_parser("1a", identifier_lexer()), (None, "1a"));
     assert_eq!(
-        run_parser("a_", identifier_lexer()),
+        run_parser("1a", keyword_or_identifier_lexer()),
+        (None, "1a")
+    );
+    assert_eq!(
+        run_parser("a_", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "a_")), "")
     );
     assert_eq!(
-        run_parser("__", identifier_lexer()),
+        run_parser("__", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "__")), "")
     );
-    assert_eq!(run_parser("1_", identifier_lexer()), (None, "1_"));
     assert_eq!(
-        run_parser("a1", identifier_lexer()),
+        run_parser("1_", keyword_or_identifier_lexer()),
+        (None, "1_")
+    );
+    assert_eq!(
+        run_parser("a1", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "a1")), "")
     );
     assert_eq!(
-        run_parser("_1", identifier_lexer()),
+        run_parser("_1", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "_1")), "")
     );
-    assert_eq!(run_parser("11", identifier_lexer()), (None, "11"));
     assert_eq!(
-        run_parser("a ", identifier_lexer()),
+        run_parser("11", keyword_or_identifier_lexer()),
+        (None, "11")
+    );
+    assert_eq!(
+        run_parser("a ", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "a")), " ")
     );
     assert_eq!(
-        run_parser("_ ", identifier_lexer()),
+        run_parser("_ ", keyword_or_identifier_lexer()),
         (Some((loc(1, 1), "_")), " ")
     );
-    assert_eq!(run_parser("1 ", identifier_lexer()), (None, "1 "));
-    assert_eq!(run_parser(" a", identifier_lexer()), (None, " a"));
-    assert_eq!(run_parser(" _", identifier_lexer()), (None, " _"));
-    assert_eq!(run_parser(" 1", identifier_lexer()), (None, " 1"));
+    assert_eq!(
+        run_parser("1 ", keyword_or_identifier_lexer()),
+        (None, "1 ")
+    );
+    assert_eq!(
+        run_parser(" a", keyword_or_identifier_lexer()),
+        (None, " a")
+    );
+    assert_eq!(
+        run_parser(" _", keyword_or_identifier_lexer()),
+        (None, " _")
+    );
+    assert_eq!(
+        run_parser(" 1", keyword_or_identifier_lexer()),
+        (None, " 1")
+    );
+
+    assert_eq!(
+        run_parser("for", keyword_or_identifier_lexer()),
+        (Some((loc(1, 1), "for")), "")
+    );
 }
 
 #[test]
@@ -533,6 +548,24 @@ fn test_token_lexer() {
             ""
         )
     );
+    assert_eq!(
+        run_parser("format", token_lexer()),
+        (
+            Some((loc(1, 1), lua_lexemes::Token::Identifier("format"))),
+            ""
+        )
+    );
+}
+
+#[test]
+fn test_keyword_lexer() {
+    let items = lua_lexemes::Keyword::ITEMS;
+    for item in &items {
+        assert_eq!(
+            run_parser(item.to_str(), token_lexer()),
+            (Some((loc(1, 1), lua_lexemes::Token::Keyword(*item))), "")
+        );
+    }
 }
 
 #[test]
