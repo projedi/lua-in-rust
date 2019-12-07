@@ -627,7 +627,10 @@ fn exp8_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
 
 fn exp_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
 ) -> parser_lib::Parser<'a, I, lua_syntax::Exp<'a>> {
-    parser_lib::trace("exp_parser", exp8_parser())
+    // `exp_parser` is called from many places. Instead of calling
+    // `exp8_parser` (and constructing it's skeleton here), `allow_recursion` moves the
+    // work to parsing stage (which improves performance overall).
+    parser_lib::trace("exp_parser", parser_lib::allow_recursion(exp8_parser))
 }
 
 // We're working with this grammar:
