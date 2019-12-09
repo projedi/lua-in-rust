@@ -142,9 +142,6 @@ macro_rules! parse_lua_test_suite {
 }
 
 parse_lua_test_suite!(
-    // TODO: Remove this one and unblacklist proper tests.
-    parse_lua_test_suite_dummy => "dummy",
-    /*
     parse_lua_test_suite_all => "all",
     parse_lua_test_suite_api => "api",
     parse_lua_test_suite_attrib => "attrib",
@@ -169,5 +166,4 @@ parse_lua_test_suite!(
     parse_lua_test_suite_strings => "strings",
     parse_lua_test_suite_vararg => "vararg",
     parse_lua_test_suite_verybig => "verybig",
-    */
 );
