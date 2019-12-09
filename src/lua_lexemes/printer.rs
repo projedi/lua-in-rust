@@ -21,7 +21,10 @@ fn fmt_long_brackets<'a>(
     write!(out, "]")
 }
 
-fn fmt_string(out: &mut dyn fmt::Write, token: &lua_lexemes::StringLiteral) -> fmt::Result {
+fn fmt_quoted_string(
+    out: &mut dyn fmt::Write,
+    token: &lua_lexemes::QuotedStringLiteral,
+) -> fmt::Result {
     write!(out, "{}", token.quote)?;
 
     for c in token.string.chars() {
@@ -50,6 +53,13 @@ fn fmt_string(out: &mut dyn fmt::Write, token: &lua_lexemes::StringLiteral) -> f
     write!(out, "{}", token.quote)
 }
 
+pub fn fmt_string<'a>(out: &mut dyn fmt::Write, s: &lua_lexemes::StringLiteral<'a>) -> fmt::Result {
+    match s {
+        lua_lexemes::StringLiteral::QuotedStringLiteral(s) => fmt_quoted_string(out, s),
+        lua_lexemes::StringLiteral::RawStringLiteral(s) => fmt_long_brackets(out, s),
+    }
+}
+
 type PrinterResult = Result<(), String>;
 
 fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> PrinterResult {
@@ -62,9 +72,6 @@ fn fmt_token<'a>(out: &mut dyn fmt::Write, token: &lua_lexemes::Token<'a>) -> Pr
         }
         lua_lexemes::Token::OtherToken(t) => {
             write!(out, "{}", t.to_str()).map_err(|_| "operator".to_string())
-        }
-        lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)) => {
-            fmt_long_brackets(out, t).map_err(|_| "raw string".to_string())
         }
         lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)) => {
             fmt_string(out, t).map_err(|_| "string".to_string())

@@ -46,23 +46,18 @@ fn name_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone
 }
 
 fn string_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
-) -> parser_lib::Parser<'a, I, String> {
+) -> parser_lib::Parser<'a, I, lua_syntax::StringLiteral<'a>> {
     trace_scoped!("lua_syntax string_parser_skeleton");
     parser_lib::map_satisfies(
         |in_t: &'a lua_lexemes::LocatedToken<'a>| match &in_t.token {
-            lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => {
-                Some(s.string.clone())
-            }
-            lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(s)) => {
-                Some(String::from(s.string))
-            }
+            lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(s)) => Some(s.clone()),
             _ => None,
         },
     )
 }
 
 fn number_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + Clone + 'a>(
-) -> parser_lib::Parser<'a, I, lua_syntax::Number> {
+) -> parser_lib::Parser<'a, I, lua_syntax::NumberLiteral> {
     trace_scoped!("lua_syntax number_parser_skeleton");
     parser_lib::map_satisfies(|in_t: &'a lua_lexemes::LocatedToken<'a>| match in_t.token {
         lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(n)) => Some(n),

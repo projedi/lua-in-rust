@@ -23,26 +23,41 @@ fn number<'a>(n: f64) -> lua_lexemes::LocatedToken<'a> {
 fn string<'a>(s: String) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
         token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
-            lua_lexemes::StringLiteral {
+            lua_lexemes::StringLiteral::QuotedStringLiteral(lua_lexemes::QuotedStringLiteral {
                 string: s,
                 quote: '"',
-            },
+            }),
         )),
         location: loc(1, 1),
     }
 }
 
+fn syn_string<'a>(s: String) -> lua_syntax::StringLiteral<'a> {
+    lua_lexemes::StringLiteral::QuotedStringLiteral(lua_lexemes::QuotedStringLiteral {
+        string: s,
+        quote: '"',
+    })
+}
+
 fn raw_string<'a>(s: &'a str) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
-        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
-            lua_lexemes::LongBrackets {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+            lua_lexemes::StringLiteral::RawStringLiteral(lua_lexemes::LongBrackets {
                 string: s,
                 level: 0,
                 ghost_newline: false,
-            },
+            }),
         )),
         location: loc(1, 1),
     }
+}
+
+fn syn_raw_string<'a>(s: &'a str) -> lua_syntax::StringLiteral<'a> {
+    lua_lexemes::StringLiteral::RawStringLiteral(lua_lexemes::LongBrackets {
+        string: s,
+        level: 0,
+        ghost_newline: false,
+    })
 }
 
 fn period<'a>() -> lua_lexemes::LocatedToken<'a> {
@@ -561,11 +576,11 @@ fn test_exp_parser_literals() {
     );
     assert_eq!(
         run_parser(vec![string("abc".to_string())].iter(), exp_parser()),
-        Some(lua_syntax::Exp::String("abc".to_string()))
+        Some(lua_syntax::Exp::String(syn_string("abc".to_string())))
     );
     assert_eq!(
         run_parser(vec![raw_string("abc")].iter(), exp_parser()),
-        Some(lua_syntax::Exp::String("abc".to_string()))
+        Some(lua_syntax::Exp::String(syn_raw_string("abc")))
     );
     assert_eq!(
         run_parser(vec![varargs()].iter(), exp_parser()),
@@ -1916,11 +1931,11 @@ fn test_args_parser() {
     );
     assert_eq!(
         run_parser(vec![string("abc".to_string())].iter(), args_parser()),
-        Some(lua_syntax::Args::String("abc".to_string()))
+        Some(lua_syntax::Args::String(syn_string("abc".to_string())))
     );
     assert_eq!(
         run_parser(vec![raw_string("abc")].iter(), args_parser()),
-        Some(lua_syntax::Args::String("abc".to_string()))
+        Some(lua_syntax::Args::String(syn_raw_string("abc")))
     );
 }
 
@@ -1953,7 +1968,7 @@ fn test_functioncall_parser() {
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
-            lua_syntax::Args::String("def".to_string())
+            lua_syntax::Args::String(syn_string("def".to_string()))
         ))
     );
     assert_eq!(
@@ -1963,7 +1978,7 @@ fn test_functioncall_parser() {
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
-            lua_syntax::Args::String("def".to_string())
+            lua_syntax::Args::String(syn_raw_string("def"))
         ))
     );
     assert_eq!(
@@ -1999,7 +2014,7 @@ fn test_functioncall_parser() {
             lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
-            lua_syntax::Args::String("def".to_string())
+            lua_syntax::Args::String(syn_string("def".to_string()))
         ))
     );
     assert_eq!(
@@ -2038,7 +2053,7 @@ fn test_functioncall_parser() {
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
                 lua_syntax::Args::Args(None)
             ))),
-            lua_syntax::Args::String("def".to_string())
+            lua_syntax::Args::String(syn_string("def".to_string()))
         ))
     );
 
@@ -2072,7 +2087,7 @@ fn test_functioncall_parser() {
         Some(lua_syntax::FunctionCall::MethodCall(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc"))),
             "def",
-            lua_syntax::Args::String("xyz".to_string())
+            lua_syntax::Args::String(syn_string("xyz".to_string()))
         ))
     );
     assert_eq!(
@@ -2137,7 +2152,7 @@ fn test_functioncall_parser() {
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             "def",
-            lua_syntax::Args::String("xyz".to_string())
+            lua_syntax::Args::String(syn_string("xyz".to_string()))
         ))
     );
     assert_eq!(
@@ -2205,7 +2220,7 @@ fn test_functioncall_parser() {
                 lua_syntax::Args::Args(None)
             ))),
             "def",
-            lua_syntax::Args::String("xyz".to_string())
+            lua_syntax::Args::String(syn_string("xyz".to_string()))
         ))
     );
 }

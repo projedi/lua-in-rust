@@ -129,23 +129,28 @@ impl OtherToken {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LongBrackets<'a> {
     pub string: &'a str,
     pub level: usize,
     pub ghost_newline: bool,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct StringLiteral {
+#[derive(Debug, PartialEq, Clone)]
+pub struct QuotedStringLiteral {
     pub string: String,
     pub quote: char,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum StringLiteral<'a> {
+    QuotedStringLiteral(QuotedStringLiteral),
+    RawStringLiteral(LongBrackets<'a>),
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Literal<'a> {
-    RawStringLiteral(LongBrackets<'a>),
-    StringLiteral(StringLiteral),
+    StringLiteral(StringLiteral<'a>),
     NumberLiteral(f64),
 }
 

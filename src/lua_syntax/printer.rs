@@ -1,3 +1,4 @@
+use crate::lua_lexemes::printer::fmt_string;
 use crate::lua_syntax;
 use std::fmt;
 
@@ -110,19 +111,27 @@ fn comma_separated(out: &mut dyn fmt::Write, params: Params, elems: &[impl Prett
 
 fn with_parens(
     out: &mut dyn fmt::Write,
+    f: impl FnOnce(&mut dyn fmt::Write) -> fmt::Result,
+) -> fmt::Result {
+    write!(out, "(")?;
+    f(out)?;
+    write!(out, ")")
+}
+
+fn maybe_parens(
+    out: &mut dyn fmt::Write,
     params: Params,
     inner_precedence: u64,
     f: impl FnOnce(&mut dyn fmt::Write, Params) -> fmt::Result,
 ) -> fmt::Result {
     let needs_parens = inner_precedence < params.precedence;
     if needs_parens {
-        write!(out, "(")?;
+        with_parens(out, move |out| {
+            f(out, params.with_precedence(inner_precedence))
+        })
+    } else {
+        f(out, params.with_precedence(inner_precedence))
     }
-    f(out, params.with_precedence(inner_precedence))?;
-    if needs_parens {
-        write!(out, ")")?;
-    }
-    Ok(())
 }
 
 impl Pretty for lua_syntax::Name<'_> {
@@ -131,7 +140,7 @@ impl Pretty for lua_syntax::Name<'_> {
     }
 }
 
-impl Pretty for lua_syntax::Number {
+impl Pretty for lua_syntax::NumberLiteral {
     fn fmt(&self, out: &mut dyn fmt::Write, _params: Params) -> fmt::Result {
         write!(out, "{}", self)
     }
@@ -146,7 +155,11 @@ impl Pretty for lua_syntax::Block<'_> {
         }
         match &self.1 {
             None => Ok(()),
-            Some(stmt) => stmt.fmt(out, params),
+            Some(stmt) => {
+                put_level(out, params)?;
+                stmt.fmt(out, params)?;
+                writeln!(out)
+            }
         }
     }
 }
@@ -170,11 +183,13 @@ impl Pretty for lua_syntax::Stat<'_> {
                 exp.fmt(out, params)?;
                 writeln!(out, " do")?;
                 block.fmt(out, params.next_level())?;
+                put_level(out, params)?;
                 write!(out, "end")
             }
             lua_syntax::Stat::Repeat(block, exp) => {
                 writeln!(out, "repeat")?;
                 block.fmt(out, params.next_level())?;
+                put_level(out, params)?;
                 write!(out, "until ")?;
                 exp.fmt(out, params)
             }
@@ -184,6 +199,7 @@ impl Pretty for lua_syntax::Stat<'_> {
                 writeln!(out, " then")?;
                 then_branch.1.fmt(out, params.next_level())?;
                 for else_if_branch in else_if_branches {
+                    put_level(out, params)?;
                     write!(out, "elseif ")?;
                     else_if_branch.0.fmt(out, params)?;
                     writeln!(out, " then")?;
@@ -192,10 +208,12 @@ impl Pretty for lua_syntax::Stat<'_> {
                 match &else_branch {
                     None => (),
                     Some(block) => {
+                        put_level(out, params)?;
                         writeln!(out, "else")?;
                         block.fmt(out, params.next_level())?;
                     }
                 }
+                put_level(out, params)?;
                 write!(out, "end")
             }
             lua_syntax::Stat::For(name, exp_from, exp_to, exp_step, block) => {
@@ -212,6 +230,7 @@ impl Pretty for lua_syntax::Stat<'_> {
                 }
                 writeln!(out, " do")?;
                 block.fmt(out, params.next_level())?;
+                put_level(out, params)?;
                 write!(out, "end")
             }
             lua_syntax::Stat::ForIn(names, exps, block) => {
@@ -221,6 +240,7 @@ impl Pretty for lua_syntax::Stat<'_> {
                 comma_separated(out, params, exps)?;
                 writeln!(out, " do")?;
                 block.fmt(out, params.next_level())?;
+                put_level(out, params)?;
                 write!(out, "end")
             }
             lua_syntax::Stat::Function(funcname, funcbody) => {
@@ -303,7 +323,7 @@ impl Pretty for lua_syntax::Exp<'_> {
             lua_syntax::Exp::False => write!(out, "false"),
             lua_syntax::Exp::True => write!(out, "true"),
             lua_syntax::Exp::Number(n) => write!(out, "{}", n),
-            lua_syntax::Exp::String(s) => write!(out, "{}", s),
+            lua_syntax::Exp::String(s) => fmt_string(out, s),
             lua_syntax::Exp::VarArgs => write!(out, "..."),
             lua_syntax::Exp::Function(funcbody) => {
                 write!(out, "function ")?;
@@ -313,7 +333,7 @@ impl Pretty for lua_syntax::Exp<'_> {
             lua_syntax::Exp::TableCtor(table_ctor) => {
                 table_ctor.fmt(out, params.default_precedence())
             }
-            lua_syntax::Exp::BinOp(lhs, op, rhs) => with_parens(
+            lua_syntax::Exp::BinOp(lhs, op, rhs) => maybe_parens(
                 out,
                 params,
                 op.precedence(),
@@ -325,12 +345,15 @@ impl Pretty for lua_syntax::Exp<'_> {
                     rhs.fmt(out, params)
                 },
             ),
-            lua_syntax::Exp::UnOp(op, exp) => with_parens(
+            lua_syntax::Exp::UnOp(op, exp) => maybe_parens(
                 out,
                 params,
                 op.precedence(),
                 |out: &mut dyn fmt::Write, params: Params| -> fmt::Result {
                     op.fmt(out, params)?;
+                    if let lua_syntax::UnOp::Not = op {
+                        write!(out, " ")?;
+                    }
                     exp.fmt(out, params)
                 },
             ),
@@ -343,7 +366,7 @@ impl Pretty for lua_syntax::PrefixExp<'_> {
         match &self {
             lua_syntax::PrefixExp::Var(v) => v.fmt(out, params),
             lua_syntax::PrefixExp::FunctionCall(fcall) => fcall.fmt(out, params),
-            lua_syntax::PrefixExp::Exp(exp) => exp.fmt(out, params),
+            lua_syntax::PrefixExp::Exp(exp) => with_parens(out, move |out| exp.fmt(out, params)),
         }
     }
 }
@@ -357,7 +380,7 @@ impl Pretty for lua_syntax::FunctionCall<'_> {
             }
             lua_syntax::FunctionCall::MethodCall(exp, name, args) => {
                 exp.fmt(out, params)?;
-                write!(out, "{}:", name)?;
+                write!(out, ":{}", name)?;
                 args.fmt(out, params)
             }
         }
@@ -376,7 +399,7 @@ impl Pretty for lua_syntax::Args<'_> {
                 write!(out, ")")
             }
             lua_syntax::Args::TableCtor(table_ctor) => table_ctor.fmt(out, params),
-            lua_syntax::Args::String(s) => write!(out, "{}", s),
+            lua_syntax::Args::String(s) => fmt_string(out, s),
         }
     }
 }
@@ -390,6 +413,7 @@ impl Pretty for lua_syntax::FuncBody<'_> {
         }
         writeln!(out, ")")?;
         self.1.fmt(out, params.next_level())?;
+        put_level(out, params)?;
         write!(out, "end")
     }
 }

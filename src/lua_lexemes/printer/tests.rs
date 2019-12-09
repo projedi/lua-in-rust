@@ -29,7 +29,10 @@ fn string<'a>(
 ) -> lua_lexemes::LocatedToken<'a> {
     lua_lexemes::LocatedToken {
         token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
-            lua_lexemes::StringLiteral { string, quote },
+            lua_lexemes::StringLiteral::QuotedStringLiteral(lua_lexemes::QuotedStringLiteral {
+                string,
+                quote,
+            }),
         )),
         location: lua_lexemes::Location { line, column },
     }
@@ -43,12 +46,12 @@ fn raw_string(
     column: usize,
 ) -> lua_lexemes::LocatedToken {
     lua_lexemes::LocatedToken {
-        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
-            lua_lexemes::LongBrackets {
+        token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+            lua_lexemes::StringLiteral::RawStringLiteral(lua_lexemes::LongBrackets {
                 string,
                 level,
                 ghost_newline,
-            },
+            }),
         )),
         location: lua_lexemes::Location { line, column },
     }

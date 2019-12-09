@@ -1,6 +1,10 @@
+use crate::lua_lexemes;
+
 pub type Name<'a> = &'a str;
 
-pub type Number = f64;
+pub type NumberLiteral = f64;
+
+pub type StringLiteral<'a> = lua_lexemes::StringLiteral<'a>;
 
 #[derive(Debug, PartialEq)]
 pub struct Block<'a>(pub Vec<Stat<'a>>, pub Option<LastStat<'a>>);
@@ -48,8 +52,8 @@ pub enum Exp<'a> {
     Nil,
     False,
     True,
-    Number(Number),
-    String(String),
+    Number(NumberLiteral),
+    String(StringLiteral<'a>),
     VarArgs,
     Function(Box<FuncBody<'a>>),
     PrefixExp(PrefixExp<'a>),
@@ -75,7 +79,7 @@ pub enum FunctionCall<'a> {
 pub enum Args<'a> {
     Args(Option<NonEmptyVec<Exp<'a>>>),
     TableCtor(TableCtor<'a>),
-    String(String),
+    String(StringLiteral<'a>),
 }
 
 #[derive(Debug, PartialEq)]

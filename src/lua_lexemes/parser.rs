@@ -29,7 +29,7 @@ fn other_token_lexer<'a, 'b: 'a>(
 }
 
 fn string_literal_lexer<'a, 'b: 'a>(
-) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::StringLiteral)> {
+) -> parser_lib::Parser<'a, LocatedChars<'b>, (Location, lua_lexemes::QuotedStringLiteral)> {
     let string_literal_char_lexer = |quote: char| -> parser_lib::Parser<
         'a,
         LocatedChars<'b>,
@@ -109,7 +109,7 @@ fn string_literal_lexer<'a, 'b: 'a>(
                             move |_| {
                                 (
                                     loc,
-                                    lua_lexemes::StringLiteral {
+                                    lua_lexemes::QuotedStringLiteral {
                                         string: chars.iter().map(|(_, c)| c).collect(),
                                         quote: opening_quote,
                                     },
@@ -261,32 +261,36 @@ fn token_lexer<'a, 'b: 'a>(
             |(loc, t)| {
                 (
                     loc,
-                    lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(t)),
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)),
+                )
+            },
+            number_literal_lexer(),
+        ),
+        parser_lib::fmap(
+            |(loc, t)| {
+                (
+                    loc,
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+                        lua_lexemes::StringLiteral::RawStringLiteral(t),
+                    )),
                 )
             },
             long_brackets_lexer(),
         ),
         parser_lib::fmap(
-            |(loc, t)| (loc, lua_lexemes::Token::OtherToken(t)),
-            other_token_lexer(),
-        ),
-        parser_lib::fmap(
             |(loc, t)| {
                 (
                     loc,
-                    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(t)),
+                    lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+                        lua_lexemes::StringLiteral::QuotedStringLiteral(t),
+                    )),
                 )
             },
             string_literal_lexer(),
         ),
         parser_lib::fmap(
-            |(loc, t)| {
-                (
-                    loc,
-                    lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(t)),
-                )
-            },
-            number_literal_lexer(),
+            |(loc, t)| (loc, lua_lexemes::Token::OtherToken(t)),
+            other_token_lexer(),
         ),
     ])
 }
@@ -323,24 +327,22 @@ fn located_token_lexer<'a, 'b: 'a>(
 
 fn tokens_lexer<'a, 'b: 'a>(
 ) -> parser_lib::Parser<'a, LocatedChars<'b>, Vec<lua_lexemes::LocatedToken<'b>>> {
-    let shebang_lexer = || {
+    let special_comment_lexer = || {
         seqs_![
-            parser_lib::string::string_parser("#!"),
+            parser_lib::string::string_parser("#"),
             parser_lib::fmap(
                 |_| (),
                 parser_lib::many(parser_lib::satisfies(|c: &(_, char)| c.1 != '\n'))
             ),
         ]
     };
-    let skip_lexer = || {
-        seqs_![
-            parser_lib::try_parser(shebang_lexer()),
-            parser_lib::many(parser_lib::choice(whitespace_lexer(), comment_lexer())),
-        ]
-    };
+    let skip_lexer = || parser_lib::many(parser_lib::choice(whitespace_lexer(), comment_lexer()));
     parser_lib::seq1(
         parser_lib::seq2(
-            skip_lexer(),
+            seqs_![
+                parser_lib::try_parser(special_comment_lexer()),
+                skip_lexer(),
+            ],
             parser_lib::many(parser_lib::seq1(located_token_lexer(), skip_lexer())),
         ),
         parser_lib::eof(),

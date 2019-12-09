@@ -31,7 +31,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "".to_string(),
                     quote: '"'
                 }
@@ -44,7 +44,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "\"'".to_string(),
                     quote: '"'
                 }
@@ -57,7 +57,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "".to_string(),
                     quote: '\''
                 }
@@ -70,7 +70,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "'\"".to_string(),
                     quote: '\''
                 }
@@ -85,7 +85,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "'".to_string(),
                     quote: '"',
                 }
@@ -98,7 +98,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "\"".to_string(),
                     quote: '\'',
                 }
@@ -115,7 +115,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "a bc\" \n \x00 \x0a \x7f \x010".to_string(),
                     quote: '"'
                 }
@@ -131,7 +131,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "a bc' \n \x00 \x0a \x7f \x010".to_string(),
                     quote: '\''
                 }
@@ -149,7 +149,7 @@ fn test_string_literal_lexer() {
         (
             Some((
                 loc(1, 1),
-                lua_lexemes::StringLiteral {
+                lua_lexemes::QuotedStringLiteral {
                     string: "abc \n  def".to_string(),
                     quote: '"'
                 }
@@ -555,6 +555,16 @@ fn test_token_lexer() {
             ""
         )
     );
+    assert_eq!(
+        run_parser(".1", token_lexer()),
+        (
+            Some((
+                loc(1, 1),
+                lua_lexemes::Token::Literal(lua_lexemes::Literal::NumberLiteral(0.1))
+            )),
+            ""
+        )
+    );
 }
 
 #[test]
@@ -665,10 +675,12 @@ print(x);
                 },
                 lua_lexemes::LocatedToken {
                     token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
-                        lua_lexemes::StringLiteral {
-                            string: "a string".to_string(),
-                            quote: '\'',
-                        }
+                        lua_lexemes::StringLiteral::QuotedStringLiteral(
+                            lua_lexemes::QuotedStringLiteral {
+                                string: "a string".to_string(),
+                                quote: '\'',
+                            }
+                        )
                     )),
                     location: loc(6, 12)
                 },
@@ -732,7 +744,7 @@ x = "';
     );
     assert_eq!(
         run_parser(
-            r#"#!shebang line
+            r#"# special comment line
 local
 "#,
             tokens_lexer()
@@ -748,12 +760,40 @@ local
     assert_eq!(
         run_parser(
             r#"
-#!shebang line
+# not a comment line
 local
 "#,
             tokens_lexer()
         ),
-        (None, "!shebang line\nlocal\n",)
+        (
+            Some(vec![
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::OtherToken(lua_lexemes::OtherToken::Len),
+                    location: loc(2, 1)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Not),
+                    location: loc(2, 3)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Identifier("a"),
+                    location: loc(2, 7)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Identifier("comment"),
+                    location: loc(2, 9)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Identifier("line"),
+                    location: loc(2, 17)
+                },
+                lua_lexemes::LocatedToken {
+                    token: lua_lexemes::Token::Keyword(lua_lexemes::Keyword::Local),
+                    location: loc(3, 1)
+                },
+            ]),
+            "",
+        )
     );
     assert_eq!(
         run_parser(
@@ -775,12 +815,12 @@ A string, yo
                     location: loc(2, 3)
                 },
                 lua_lexemes::LocatedToken {
-                    token: lua_lexemes::Token::Literal(lua_lexemes::Literal::RawStringLiteral(
-                        lua_lexemes::LongBrackets {
+                    token: lua_lexemes::Token::Literal(lua_lexemes::Literal::StringLiteral(
+                        lua_lexemes::StringLiteral::RawStringLiteral(lua_lexemes::LongBrackets {
                             string: "A string, yo\n",
                             level: 1,
                             ghost_newline: true,
-                        }
+                        })
                     )),
                     location: loc(2, 5)
                 },
