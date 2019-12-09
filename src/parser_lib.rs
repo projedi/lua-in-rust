@@ -13,18 +13,26 @@ type ParserInput<I> = ParserState<I>;
 type ParserOutput<I, T> = (Option<T>, ParserState<I>);
 
 pub struct Parser<'a, I, T> {
-    closure: Box<dyn Fn(ParserInput<I>) -> ParserOutput<I, T> + 'a>,
+    closure: std::rc::Rc<dyn Fn(ParserInput<I>) -> ParserOutput<I, T> + 'a>,
 }
 
 impl<'a, I, T> Parser<'a, I, T> {
     fn make(f: impl Fn(ParserState<I>) -> (Option<T>, ParserState<I>) + 'a) -> Parser<'a, I, T> {
         Parser {
-            closure: Box::new(f),
+            closure: std::rc::Rc::new(f),
         }
     }
 
     fn run(&self, s: ParserState<I>) -> (Option<T>, ParserState<I>) {
         (self.closure)(s)
+    }
+}
+
+impl<'a, I, T> Clone for Parser<'a, I, T> {
+    fn clone(&self) -> Parser<'a, I, T> {
+        Parser {
+            closure: self.closure.clone(),
+        }
     }
 }
 
