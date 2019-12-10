@@ -1,7 +1,7 @@
 use crate::lua_syntax;
 
 pub fn interpret(ast: lua_syntax::Block) -> Result<(), String> {
-    let mut s = Scope{};
+    let s = Scope{};
     interpret_block(&s, ast)
 }
 
@@ -14,7 +14,7 @@ impl Scope {
 }
 
 fn interpret_block(s: &Scope, ast: lua_syntax::Block) -> Result<(), String> {
-    let mut s = Scope::inherit(s);
+    let s = Scope::inherit(s);
     for stmt in ast.0 {
         interpret_statement(&s, stmt)?;
     }
