@@ -285,14 +285,14 @@ fn test_funcall_printing() {
 
     assert_eq!(
         print_funcall(lua_syntax::FunctionCall::FunctionCall(
-            lua_syntax::PrefixExp::Exp(Box::new(num(1)),),
+            lua_syntax::PrefixExp::Parens(Box::new(num(1)),),
             lua_syntax::Args::Args(None),
         )),
         "(1)()\n"
     );
     assert_eq!(
         print_funcall(lua_syntax::FunctionCall::MethodCall(
-            lua_syntax::PrefixExp::Exp(Box::new(num(1)),),
+            lua_syntax::PrefixExp::Parens(Box::new(num(1)),),
             "def",
             lua_syntax::Args::Args(None),
         )),

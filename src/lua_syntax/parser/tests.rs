@@ -1830,7 +1830,7 @@ fn test_var_parser() {
         Some(lua_syntax::Var::Index(
             lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Field(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Index(
-                    lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+                    lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                         lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
                     ))),
                     lua_syntax::Exp::True
@@ -1987,7 +1987,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             lua_syntax::Args::Args(None)
@@ -1999,7 +1999,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             lua_syntax::Args::TableCtor(lua_syntax::TableCtor(None))
@@ -2011,7 +2011,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::FunctionCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             lua_syntax::Args::String(syn_string("def".to_string()))
@@ -2105,7 +2105,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             "def",
@@ -2127,7 +2127,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             "def",
@@ -2148,7 +2148,7 @@ fn test_functioncall_parser() {
             functioncall_parser()
         ),
         Some(lua_syntax::FunctionCall::MethodCall(
-            lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::PrefixExp(
+            lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::PrefixExp(
                 lua_syntax::PrefixExp::Var(Box::new(lua_syntax::Var::Name("abc")))
             ))),
             "def",
@@ -2250,7 +2250,7 @@ fn test_prefixexp_parser() {
             vec![l_paren(), k_true(), r_paren()].iter(),
             prefixexp_parser()
         ),
-        Some(lua_syntax::PrefixExp::Exp(Box::new(lua_syntax::Exp::True)))
+        Some(lua_syntax::PrefixExp::Parens(Box::new(lua_syntax::Exp::True)))
     );
 
     assert_eq!(
@@ -2270,7 +2270,7 @@ fn test_prefixexp_parser() {
     );
     assert_eq!(
         run_parser(vec![l_paren(), k_true(), r_paren()].iter(), exp_parser()),
-        Some(lua_syntax::Exp::PrefixExp(lua_syntax::PrefixExp::Exp(
+        Some(lua_syntax::Exp::PrefixExp(lua_syntax::PrefixExp::Parens(
             Box::new(lua_syntax::Exp::True)
         )))
     );
