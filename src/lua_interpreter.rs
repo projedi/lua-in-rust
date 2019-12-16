@@ -1,6 +1,8 @@
 use crate::lua_lexemes;
 use crate::lua_syntax;
 
+mod value;
+
 pub fn interpret(ast: lua_syntax::Block) -> Result<(), String> {
     let s = Scope{};
     let s = Scope::inherit(&s);
