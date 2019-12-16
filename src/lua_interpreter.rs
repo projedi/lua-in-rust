@@ -108,7 +108,7 @@ impl<'a> Value<'a> {
         }
     }
 
-    fn get_field<'b>(&'a self, field: lua_syntax::Name) -> Value<'b> {
+    fn get_field(&'a self, field: lua_syntax::Name) -> Value<'a> {
         match self {
             Value::Nil => Value::Nil,
             // TODO: What happens in lua?
@@ -165,26 +165,22 @@ fn interpret_block<'a>(s: &Scope, block: &lua_syntax::Block<'a>) -> Result<(), S
     Ok(())
 }
 
-fn adjust_values(mut vars: Vec<Value>, count: usize) -> Vec<Value> {
-    vars.resize_with(count, || Value::Nil);
-    vars
+fn adjust_values(mut vals: Vec<Value>, count: usize) -> Vec<Value> {
+    vals.resize_with(count, || Value::Nil);
+    vals
+}
+
+fn adjust_single_value(vals: Vec<Value>) -> Value {
+    match vals.into_iter().next() {
+        Some(val) => val,
+        None => Value::Nil,
+    }
 }
 
 fn assign_var<'a>(s: &Scope, var: &lua_syntax::Var<'a>, val: Value<'a>) -> Result<(), StatementError<'a>> {
-    // TODO: Metatables usage.
-    match var {
-        lua_syntax::Var::Name(name) => {
-            let table = s.get_table(name);
-            table.set_field(name, val);
-            Ok(())
-        }
-        lua_syntax::Var::Field(e, name) => {
-            let val = &adjust_values(eval_prefixexp(s, e).map_err(StatementError::Error)?, 1)[0];
-            // TODO: This clone is not needed.
-            val.set_field(name, val.clone());
-            Ok(())
-        }
-    }
+    // TODO: Implement. Do not forget about metatables.
+    eprintln!("assign_var {:?} {:?}", var, val);
+    Ok(())
 }
 
 fn assign<'a>(s: &Scope, vars: &[lua_syntax::Var<'a>], exps: Vec<Value<'a>>) -> Result<(), StatementError<'a>> {
@@ -211,7 +207,7 @@ fn interpret_statement<'a>(s: &Scope, stmt: &lua_syntax::Stat<'a>) -> Result<(),
         }
         lua_syntax::Stat::While(exp, block) => {
             loop {
-                if !adjust_values(interpret_exp(s, exp)?, 1)[0].to_bool() {
+                if !adjust_single_value(interpret_exp(s, exp)?).to_bool() {
                     return Ok(())
                 }
                 let s = Scope::inherit(s);
@@ -222,19 +218,19 @@ fn interpret_statement<'a>(s: &Scope, stmt: &lua_syntax::Stat<'a>) -> Result<(),
             loop {
                 let s = Scope::inherit(s);
                 interpret_block(&s, block)?;
-                if adjust_values(interpret_exp(&s, exp)?, 1)[0].to_bool() {
+                if adjust_single_value(interpret_exp(&s, exp)?).to_bool() {
                     return Ok(())
                 }
             }
         }
         lua_syntax::Stat::If(ifBlock, ifElseBlocks, elseBlock) => {
             let (e, block) = ifBlock;
-            if adjust_values(interpret_exp(&s, e)?, 1)[0].to_bool() {
+            if adjust_single_value(interpret_exp(&s, e)?).to_bool() {
                 let s = Scope::inherit(s);
                 return interpret_block(&s, block);
             }
             for (e, block) in ifElseBlocks {
-                if adjust_values(interpret_exp(&s, e)?, 1)[0].to_bool() {
+                if adjust_single_value(interpret_exp(&s, e)?).to_bool() {
                     let s = Scope::inherit(s);
                     return interpret_block(&s, block);
                 }
@@ -246,10 +242,10 @@ fn interpret_statement<'a>(s: &Scope, stmt: &lua_syntax::Stat<'a>) -> Result<(),
             Ok(())
         }
         lua_syntax::Stat::For(var, init, limit, step, block) => {
-            let init = adjust_values(interpret_exp(&s, init)?, 1)[0].to_number().ok_or(StatementError::Error("Expected a number".to_string()))?;
-            let limit = adjust_values(interpret_exp(&s, limit)?, 1)[0].to_number().ok_or(StatementError::Error("Expected a number".to_string()))?;
+            let init = adjust_single_value(interpret_exp(&s, init)?).to_number().ok_or(StatementError::Error("Expected a number".to_string()))?;
+            let limit = adjust_single_value(interpret_exp(&s, limit)?).to_number().ok_or(StatementError::Error("Expected a number".to_string()))?;
             let step = match step {
-                Some(step) => adjust_values(interpret_exp(&s, step)?, 1)[0].to_number().ok_or(StatementError::Error("Expected a number".to_string()))?,
+                Some(step) => adjust_single_value(interpret_exp(&s, step)?).to_number().ok_or(StatementError::Error("Expected a number".to_string()))?,
                 None => 1 as Number,
             };
             let s = Scope::inherit(s);
@@ -364,6 +360,7 @@ fn value_call<'a>(s: &Scope, f: &Value<'a>, args: &[Value<'a>]) -> Result<Vec<Va
 }
 
 fn function_call<'a>(s: &Scope, fcall: &lua_syntax::FunctionCall<'a>) -> Result<Vec<Value<'a>>, String> {
+    /*
     let prepare_args = |args: &lua_syntax::Args<'a>| -> Result<Vec<Value<'a>>, String> {
         match args {
             lua_syntax::Args::Args(None) => Ok(vec![]),
@@ -377,19 +374,22 @@ fn function_call<'a>(s: &Scope, fcall: &lua_syntax::FunctionCall<'a>) -> Result<
     };
     match fcall {
         lua_syntax::FunctionCall::FunctionCall(f, args) => {
-            let f = &adjust_values(eval_prefixexp(s, f)?, 1)[0];
+            let f = adjust_single_value(eval_prefixexp(s, f)?);
             let args = prepare_args(args)?;
-            value_call(s, f, &args)
+            value_call(s, &f, &args)
         }
         lua_syntax::FunctionCall::MethodCall(f, method, args) => {
-            let f_self = &adjust_values(eval_prefixexp(s, f)?, 1)[0];
+            let f_self = adjust_single_value(eval_prefixexp(s, f)?);
             let f = f_self.get_field(method);
             let mut args = prepare_args(args)?;
-            // TODO: This clone should not be needed.
-            args.insert(0, f_self.clone());
+            args.insert(0, f_self);
             value_call(s, &f, &args)
         }
     }
+    */
+    // TODO: Implement.
+    eprintln!("function_call {:?}", fcall);
+    Ok(vec![])
 }
 
 fn eval_var<'a>(s: &Scope, var: &lua_syntax::Var<'a>) -> Result<Value<'a>, String> {
@@ -425,15 +425,15 @@ fn eval_binop<'a>(s: &Scope, op: lua_syntax::BinOp, lhs: &lua_syntax::Exp<'a>, r
 }
 
 fn eval_unop<'a>(s: &Scope, op: lua_syntax::UnOp, exp: &lua_syntax::Exp<'a>) -> Result<Vec<Value<'a>>, String> {
-    let val = &adjust_values(eval_exp(s, exp)?, 1)[0];
+    /*
+    let val = adjust_single_value(eval_exp(s, exp)?);
     match op {
         lua_syntax::UnOp::Unm => {
             if let Some(num) = val.to_number() {
                 return Ok(vec![Value::Number(-num)])
             }
             let meta_unm = val.metadata().get_field("__unm");
-            // TODO: This clone should not be needed.
-            let result = value_call(s, &meta_unm, &[val.clone()])?;
+            let result = value_call(s, &meta_unm, &[val])?;
             Ok(adjust_values(result, 1))
         },
         lua_syntax::UnOp::Not => {
@@ -444,11 +444,14 @@ fn eval_unop<'a>(s: &Scope, op: lua_syntax::UnOp, exp: &lua_syntax::Exp<'a>) -> 
                 return Ok(vec![Value::Number(len)])
             }
             let meta_len = val.metadata().get_field("__len");
-            // TODO: This clone should not be needed.
-            let result = value_call(s, &meta_len, &[val.clone()])?;
+            let result = value_call(s, &meta_len, &[val])?;
             Ok(adjust_values(result, 1))
         },
     }
+    */
+    // TODO: Implement.
+    eprintln!("eval_unop {:?} {:?}", op, exp);
+    Ok(vec![])
 }
 
 fn eval_varargs<'a>(s: &Scope) -> Result<Vec<Value<'a>>, String> {
