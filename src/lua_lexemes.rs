@@ -148,6 +148,15 @@ pub enum StringLiteral<'a> {
     RawStringLiteral(LongBrackets<'a>),
 }
 
+impl<'a> StringLiteral<'a> {
+    pub fn get_str(&'a self) -> &'a str {
+        match self {
+            StringLiteral::QuotedStringLiteral(s) => &s.string,
+            StringLiteral::RawStringLiteral(s) => s.string,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Literal<'a> {
     StringLiteral(StringLiteral<'a>),
