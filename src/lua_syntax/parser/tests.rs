@@ -2428,16 +2428,20 @@ mod ops_tests {
         match (op1, op2) {
             ((Op::BinOp(op1, ass1, t1), p1), (Op::BinOp(op2, ass2, t2), p2)) => TestCase {
                 input: vec![number(1.0), t1(), number(2.0), t2(), number(3.0)],
-                output: if p1 < p2 {
-                    binop(num(1.0), op1, binop(num(2.0), op2, num(3.0)))
-                } else if p1 == p2 {
-                    assert_eq!(ass1, ass2);
-                    match ass1 {
-                        Assoc::Left => binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0)),
-                        Assoc::Right => binop(num(1.0), op1, binop(num(2.0), op2, num(3.0))),
+                output: match p1.cmp(&p2) {
+                    std::cmp::Ordering::Less => {
+                        binop(num(1.0), op1, binop(num(2.0), op2, num(3.0)))
                     }
-                } else {
-                    binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0))
+                    std::cmp::Ordering::Equal => {
+                        assert_eq!(ass1, ass2);
+                        match ass1 {
+                            Assoc::Left => binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0)),
+                            Assoc::Right => binop(num(1.0), op1, binop(num(2.0), op2, num(3.0))),
+                        }
+                    }
+                    std::cmp::Ordering::Greater => {
+                        binop(binop(num(1.0), op1, num(2.0)), op2, num(3.0))
+                    }
                 },
             },
             ((Op::BinOp(op1, _, t1), _), (Op::UnOp(op2, t2), _)) => TestCase {

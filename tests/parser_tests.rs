@@ -81,7 +81,7 @@ impl TestFile {
             path
         };
         let golden_file = {
-            let mut path = root_path.clone();
+            let mut path = root_path;
             path.push(GOLDEN_FILES);
             path.push(name);
             path.set_extension("golden");

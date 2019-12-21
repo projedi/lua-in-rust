@@ -1,7 +1,3 @@
-// TODO: Remove when https://github.com/rust-lang/rust-clippy/issues/4187
-// is resolved.
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::redundant_closure))]
-
 use crate::utils::enumerate::{enumerate, Enumerate};
 
 #[derive(Clone)]
