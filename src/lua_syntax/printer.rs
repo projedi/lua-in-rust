@@ -366,7 +366,7 @@ impl Pretty for lua_syntax::PrefixExp<'_> {
         match &self {
             lua_syntax::PrefixExp::Var(v) => v.fmt(out, params),
             lua_syntax::PrefixExp::FunctionCall(fcall) => fcall.fmt(out, params),
-            lua_syntax::PrefixExp::Exp(exp) => with_parens(out, move |out| exp.fmt(out, params)),
+            lua_syntax::PrefixExp::Parens(exp) => with_parens(out, move |out| exp.fmt(out, params)),
         }
     }
 }

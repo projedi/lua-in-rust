@@ -693,7 +693,7 @@ fn prefixexp_parser<'a, I: Iterator<Item = &'a lua_lexemes::LocatedToken<'a>> + 
             name_parser(),
         ),
         parser_lib::fmap(
-            |x| lua_syntax::PrefixExp::Exp(Box::new(x)),
+            |x| lua_syntax::PrefixExp::Parens(Box::new(x)),
             parser_lib::seq2(
                 other_token_parser(lua_lexemes::OtherToken::LParen),
                 parser_lib::seq1(

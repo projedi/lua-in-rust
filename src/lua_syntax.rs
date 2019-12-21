@@ -66,7 +66,7 @@ pub enum Exp<'a> {
 pub enum PrefixExp<'a> {
     Var(Box<Var<'a>>),
     FunctionCall(Box<FunctionCall<'a>>),
-    Exp(Box<Exp<'a>>),
+    Parens(Box<Exp<'a>>),
 }
 
 #[derive(Debug, PartialEq)]
