@@ -3,30 +3,30 @@ struct ObjectId(usize);
 
 pub trait Object {}
 
-pub struct ObjectRef<'g, T: Object + 'g> {
+pub struct ObjectRef<'o, 'm: 'o, T: Object + 'o> {
     id: ObjectId,
-    manager: &'g MemoryManager<'g>,
+    manager: &'m MemoryManager<'o>,
     marker: std::marker::PhantomData<T>,
 }
 
 // Non-copyable for a reason. Forbids moving of the object during collection.
-pub struct ObjectPin<'g, T: Object + 'g> {
-    object_ref: ObjectRef<'g, T>,
+pub struct ObjectPin<'o, 'm: 'o, T: Object + 'o> {
+    object_ref: ObjectRef<'o, 'm, T>,
 }
 
 // TODO: Make it a trait with different implementations.
-pub struct MemoryManager<'g> {
-    objects: Vec<Box<dyn Object + 'g>>,
+pub struct MemoryManager<'o> {
+    objects: Vec<Box<dyn Object + 'o>>,
 }
 
-impl<'g> MemoryManager<'g> {
-    pub fn new() -> MemoryManager<'g> {
+impl<'o> MemoryManager<'o> {
+    pub fn new() -> MemoryManager<'o> {
         MemoryManager{
             objects: vec![],
         }
     }
 
-    pub fn allocate<T: Object + 'g>(&'g mut self, obj: Box<T>) -> ObjectRef<'g, T> {
+    pub fn allocate<'m: 'o, T: Object + 'o>(&'m mut self, obj: Box<T>) -> ObjectRef<'m, 'o, T> {
         let id = self.objects.len();
         self.objects.push(obj);
         ObjectRef{
@@ -37,15 +37,15 @@ impl<'g> MemoryManager<'g> {
     }
 }
 
-impl<'g, T: Object + 'g> ObjectRef<'g, T> {
-    pub fn pin(&self) -> ObjectPin<'g, T> {
+impl<'o, 'm: 'o, T: Object + 'o> ObjectRef<'o, 'm, T> {
+    pub fn pin(&self) -> ObjectPin<'o, 'm, T> {
         ObjectPin{
             object_ref: self.clone()
         }
     }
 }
 
-impl<'g, T: Object + 'g> Clone for ObjectRef<'g, T> {
+impl<'o, 'm: 'o, T: Object + 'o> Clone for ObjectRef<'o, 'm, T> {
     fn clone(&self) -> Self {
         ObjectRef{
             id: self.id.clone(),
@@ -55,10 +55,10 @@ impl<'g, T: Object + 'g> Clone for ObjectRef<'g, T> {
     }
 }
 
-impl<'g, T: Object + 'g> Copy for ObjectRef<'g, T> {}
+impl<'o, 'm: 'o, T: Object + 'o> Copy for ObjectRef<'o, 'm, T> {}
 
-impl<'g, T: Object + 'g> ObjectPin<'g, T> {
-    pub fn as_ref<'a>(&'a self) -> &'a T where 'g: 'a {
+impl<'o, 'm: 'o, T: Object + 'o> ObjectPin<'o, 'm, T> {
+    pub fn as_ref<'a>(&'a self) -> &'a T where 'o: 'a {
         let obj = self.object_ref.manager.objects[self.object_ref.id.0].as_ref();
         let obj_ptr = obj as *const dyn Object;
         unsafe { &*(obj_ptr as *const T) }
